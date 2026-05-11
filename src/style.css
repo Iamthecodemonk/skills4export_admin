@@ -1,0 +1,132 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: Inter, "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  --font-display: "Plus Jakarta Sans", Inter, "Segoe UI", sans-serif;
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+
+  --color-brand-50: #f4f5ff;
+  --color-brand-100: #e8e9ff;
+  --color-brand-200: #d7d9ff;
+  --color-brand-300: #b8bcff;
+  --color-brand-400: #9294fb;
+  --color-brand-500: #6f6be8;
+  --color-brand-600: #5751c8;
+  --color-brand-700: #443fa0;
+  --color-brand-800: #353266;
+  --color-brand-900: #23243b;
+  --color-brand-950: #12121f;
+}
+
+:root {
+  color-scheme: light;
+  --primary: #443fa0;
+  --primary-deep: #353266;
+  --primary-soft: #e8e9ff;
+  --accent: #443fa0;
+  --accent-strong: #353266;
+  --accent-soft: #ececff;
+  --success: #14b8a6;
+  --warning: #d97706;
+  --danger: #e5484d;
+  --app-bg: linear-gradient(180deg, #ffffff 0%, #f4f7ff 100%);
+  --header-bg: rgba(255, 255, 255, 0.94);
+  --surface-primary: #ffffff;
+  --surface-secondary: #f8f9ff;
+  --surface-muted: #f3f5ff;
+  --search-bg: #f3f5ff;
+  --border-soft: #dde3f1;
+  --text-primary: #161725;
+  --text-secondary: #51576f;
+  --text-tertiary: #7b8198;
+  --overlay-bg: rgba(18, 18, 31, 0.52);
+  --shadow-elevated: 0 18px 48px rgba(33, 34, 61, 0.12);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --primary: #b8bcff;
+  --primary-deep: #d7d9ff;
+  --primary-soft: #25253a;
+  --accent: #9294fb;
+  --accent-strong: #b8bcff;
+  --accent-soft: #25253a;
+  --success: #2dd4bf;
+  --warning: #fbbf24;
+  --danger: #ff6369;
+  --app-bg: linear-gradient(180deg, #12121f 0%, #191a2d 100%);
+  --header-bg: rgba(18, 18, 31, 0.94);
+  --surface-primary: #12121f;
+  --surface-secondary: #1e1e30;
+  --surface-muted: #25253a;
+  --search-bg: #25253a;
+  --border-soft: #2f3450;
+  --text-primary: #f5f6ff;
+  --text-secondary: #c6cae0;
+  --text-tertiary: #9298b5;
+  --overlay-bg: rgba(0, 0, 0, 0.62);
+  --shadow-elevated: 0 18px 48px rgba(0, 0, 0, 0.28);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 15.5px;
+  background: #f4f7ff;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--app-bg);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:where([class*='shadow-']) {
+  box-shadow: none !important;
+}
+
+#app main :is([class~="rounded-3xl"], [class~="rounded-[1.35rem]"], [class~="rounded-[1.5rem]"], [class~="rounded-[1.6rem]"], [class~="rounded-[2rem]"]) {
+  border-radius: 1rem !important;
+}
+
+.app-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 58%, transparent) transparent;
+}
+
+.app-scroll::-webkit-scrollbar {
+  width: 0.45rem;
+  height: 0.45rem;
+}
+
+.app-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 52%, transparent);
+}
+
+.sonner-toast {
+  border: 1px solid var(--border-soft) !important;
+  border-radius: 1rem !important;
+  box-shadow: none !important;
+}
+
+@media (min-width: 1024px) {
+  html {
+    font-size: 15.75px;
+  }
+}
