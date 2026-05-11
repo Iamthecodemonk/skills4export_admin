@@ -21,7 +21,7 @@ const usesAppLayout = computed(() => route.meta.layout === 'app')
     >
       <AppSidebar :open="sidebarOpen" @close="sidebarOpen = false" />
 
-      <main class="app-scroll min-w-0 lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto">
+      <main class="app-scroll min-w-0 overflow-x-hidden lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto">
         <RouterView />
       </main>
 

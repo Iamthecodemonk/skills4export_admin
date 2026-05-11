@@ -389,7 +389,7 @@ onMounted(() => {
       </form>
     </section>
 
-    <section class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)]">
+    <section class="min-w-0 overflow-hidden rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)]">
       <div class="flex flex-col gap-3 border-b border-[color:var(--border-soft)] p-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 class="font-display text-base font-semibold text-[var(--text-primary)]">Pages</h2>
@@ -415,23 +415,23 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-else class="hidden overflow-x-auto md:block">
-        <table class="w-full text-left text-sm">
+      <div v-else class="app-scroll hidden max-w-full overflow-x-auto md:block">
+        <table class="w-full min-w-[68rem] table-fixed text-left text-sm">
           <thead class="border-b border-[color:var(--border-soft)] text-[0.72rem] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
             <tr>
-              <th class="px-4 py-3 font-semibold">Page</th>
-              <th class="px-4 py-3 font-semibold">Images</th>
-              <th class="px-4 py-3 font-semibold">Category</th>
-              <th class="px-4 py-3 font-semibold">Followers</th>
-              <th class="px-4 py-3 font-semibold">Posts</th>
-              <th class="px-4 py-3 font-semibold">Approval</th>
-              <th class="px-4 py-3 text-right font-semibold">Actions</th>
+              <th class="w-[22%] px-4 py-3 font-semibold">Page</th>
+              <th class="w-[22%] px-4 py-3 font-semibold">Images</th>
+              <th class="w-[18%] px-4 py-3 font-semibold">Category</th>
+              <th class="w-[10%] px-4 py-3 font-semibold">Followers</th>
+              <th class="w-[8%] px-4 py-3 font-semibold">Posts</th>
+              <th class="w-[12%] px-4 py-3 font-semibold">Approval</th>
+              <th class="w-[8%] px-4 py-3 text-right font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-[color:var(--border-soft)]">
             <tr v-for="pageItem in filteredPages" :key="pageItem.id">
               <td class="px-4 py-3">
-                <p class="font-semibold text-[var(--text-primary)]">{{ pageItem.name }}</p>
+                <p class="truncate font-semibold text-[var(--text-primary)]">{{ pageItem.name }}</p>
                 <p class="mt-1 font-mono text-xs text-[var(--text-secondary)]">{{ pageItem.slug }}</p>
               </td>
               <td class="px-4 py-3">
@@ -459,7 +459,7 @@ onMounted(() => {
                   </div>
                 </div>
               </td>
-              <td class="px-4 py-3 text-[var(--text-secondary)]">{{ getCategoryName(pageItem.categoryId) }}</td>
+              <td class="truncate px-4 py-3 text-[var(--text-secondary)]">{{ getCategoryName(pageItem.categoryId) }}</td>
               <td class="px-4 py-3 font-semibold text-[var(--text-primary)]">{{ pageItem.followers_count ?? 0 }}</td>
               <td class="px-4 py-3 font-semibold text-[var(--text-primary)]">{{ pageItem.posts_count ?? 0 }}</td>
               <td class="px-4 py-3">

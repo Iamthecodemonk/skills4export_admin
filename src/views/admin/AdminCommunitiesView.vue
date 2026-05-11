@@ -542,8 +542,8 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-else class="hidden overflow-x-auto md:block">
-        <table class="w-full text-left text-sm">
+      <div v-else class="app-scroll hidden max-w-full overflow-x-auto md:block">
+        <table class="w-full min-w-[68rem] table-fixed text-left text-sm">
           <thead class="border-b border-[color:var(--border-soft)] text-[0.72rem] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
             <tr>
               <th class="px-4 py-3 font-semibold">Community</th>

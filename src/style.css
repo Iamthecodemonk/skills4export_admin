@@ -104,6 +104,10 @@ button {
   border-radius: 1rem !important;
 }
 
+#app main > * {
+  min-width: 0;
+}
+
 .app-scroll {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--accent) 58%, transparent) transparent;

@@ -354,7 +354,7 @@ onMounted(() => {
       </form>
     </section>
 
-    <section class="overflow-hidden">
+    <section class="min-w-0 overflow-hidden">
       <div class="app-scroll flex snap-x gap-4 overflow-x-auto pb-1">
         <article
           v-for="stat in questionStats"
@@ -374,7 +374,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)]">
+    <section class="min-w-0 overflow-hidden rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)]">
       <div class="flex flex-col gap-3 border-b border-[color:var(--border-soft)] p-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 class="font-display text-base font-semibold text-[var(--text-primary)]">Questions</h2>
@@ -410,32 +410,42 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-else class="hidden overflow-x-auto md:block">
-        <table class="w-full text-left text-sm">
+      <div v-else class="app-scroll hidden max-w-full overflow-x-auto md:block">
+        <table class="min-w-[58rem] table-fixed text-left text-sm">
           <thead class="border-b border-[color:var(--border-soft)] text-[0.72rem] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
             <tr>
-              <th class="px-4 py-3 font-semibold">Question</th>
-              <th class="px-4 py-3 font-semibold">Community</th>
-              <th class="px-4 py-3 font-semibold">Visibility</th>
-              <th class="px-4 py-3 font-semibold">Answers</th>
-              <th class="px-4 py-3 text-right font-semibold">Actions</th>
+              <th class="w-[42%] px-4 py-3 font-semibold">Question</th>
+              <th class="w-[18%] px-4 py-3 font-semibold">Community</th>
+              <th class="w-[14%] px-4 py-3 font-semibold">Visibility</th>
+              <th class="w-[14%] px-4 py-3 font-semibold">Answers</th>
+              <th class="w-[12%] px-4 py-3 text-right font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-[color:var(--border-soft)]">
             <tr v-for="question in filteredQuestions" :key="question.id">
               <td class="px-4 py-3">
-                <p class="font-semibold text-[var(--text-primary)]">{{ question.title }}</p>
+                <p class="truncate font-semibold text-[var(--text-primary)]">{{ question.title }}</p>
                 <p class="mt-1 max-w-lg truncate text-sm text-[var(--text-secondary)]">{{ question.body }}</p>
               </td>
-              <td class="px-4 py-3 text-[var(--text-secondary)]">{{ question.community?.name || 'No community' }}</td>
+              <td class="truncate px-4 py-3 text-[var(--text-secondary)]">{{ question.community?.name || 'No community' }}</td>
               <td class="px-4 py-3 capitalize text-[var(--text-secondary)]">{{ formatVisibility(question.visibility) }}</td>
               <td class="px-4 py-3">
-                <StatusChip :tone="question.totalAnswers > 0 ? 'success' : 'muted'">
+                <RouterLink :to="`/admin/questions/${question.id}/answers`">
+                  <StatusChip :tone="question.totalAnswers > 0 ? 'success' : 'muted'">
                   {{ question.totalAnswers }} answers
-                </StatusChip>
+                  </StatusChip>
+                </RouterLink>
               </td>
               <td class="px-4 py-3">
-                <div class="flex justify-end">
+                <div class="flex justify-end gap-2">
+                  <RouterLink
+                    :to="`/admin/questions/${question.id}/answers`"
+                    class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-[color:var(--border-soft)] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
+                    :aria-label="`Manage answers for ${question.title}`"
+                    :title="`Manage answers for ${question.title}`"
+                  >
+                    <MessageSquareText class="h-4 w-4" />
+                  </RouterLink>
                   <button
                     type="button"
                     class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-[color:var(--border-soft)] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
@@ -470,15 +480,25 @@ onMounted(() => {
           <p class="mt-3 line-clamp-3 text-sm text-[var(--text-secondary)]">{{ question.body }}</p>
           <div class="mt-3 flex items-center justify-between gap-3">
             <span class="text-xs capitalize text-[var(--text-tertiary)]">{{ formatVisibility(question.visibility) }}</span>
-            <button
-              type="button"
-              class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-[color:var(--border-soft)] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
-              :aria-label="`View ${question.title}`"
-              :title="`View ${question.title}`"
-              @click="viewingQuestion = question"
-            >
-              <Eye class="h-4 w-4" />
-            </button>
+            <div class="flex gap-2">
+              <RouterLink
+                :to="`/admin/questions/${question.id}/answers`"
+                class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-[color:var(--border-soft)] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
+                :aria-label="`Manage answers for ${question.title}`"
+                :title="`Manage answers for ${question.title}`"
+              >
+                <MessageSquareText class="h-4 w-4" />
+              </RouterLink>
+              <button
+                type="button"
+                class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-[color:var(--border-soft)] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
+                :aria-label="`View ${question.title}`"
+                :title="`View ${question.title}`"
+                @click="viewingQuestion = question"
+              >
+                <Eye class="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </article>
       </div>
@@ -572,28 +592,13 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="mt-5 rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)]">
-          <div class="border-b border-[color:var(--border-soft)] p-3">
-            <p class="text-sm font-semibold text-[var(--text-primary)]">Answers</p>
-            <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ viewingQuestion.answers?.length || 0 }} loaded answers</p>
-          </div>
-
-          <div v-if="!viewingQuestion.answers?.length" class="p-4 text-sm text-[var(--text-secondary)]">
-            No answers are available for this question yet.
-          </div>
-
-          <div v-else class="divide-y divide-[color:var(--border-soft)]">
-            <article v-for="answer in viewingQuestion.answers" :key="answer.id" class="p-3">
-              <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <p class="text-sm font-semibold text-[var(--text-primary)]">
-                  {{ answer.user?.name || answer.user?.email || 'Unknown answerer' }}
-                </p>
-                <p class="text-xs text-[var(--text-tertiary)]">{{ formatDate(answer.createdAt) }}</p>
-              </div>
-              <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--text-secondary)]">{{ answer.content }}</p>
-            </article>
-          </div>
-        </div>
+        <RouterLink
+          :to="`/admin/questions/${viewingQuestion.id}/answers`"
+          class="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]"
+        >
+          <MessageSquareText class="h-4 w-4" />
+          Manage answers
+        </RouterLink>
       </section>
     </div>
   </div>

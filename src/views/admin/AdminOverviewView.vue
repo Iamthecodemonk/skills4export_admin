@@ -1,18 +1,112 @@
 <script setup lang="ts">
-import { Check, Download, Filter, Flag, Search, Users } from 'lucide-vue-next'
+import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
+import { BriefcaseBusiness, CircleHelp, FileText, Loader2, RefreshCw, UserRoundCheck, Users } from 'lucide-vue-next'
 import StatusChip from '../../components/StatusChip.vue'
+import { listFreelancers, listJobs, listPosts, listQuestions, listUsers, type Post, type Question } from '../../services'
 
-const stats = [
-  { label: 'Active users', value: '18,420', detail: '+4.8% this month', tone: 'success' },
-  { label: 'Pending reports', value: '124', detail: '36 high priority', tone: 'warning' },
-  { label: 'Posts reviewed', value: '2,918', detail: '94% approval rate', tone: 'accent' },
-]
+type DashboardStat = {
+  label: string
+  value: number
+  detail: string
+  tone: 'success' | 'warning' | 'danger' | 'muted' | 'accent'
+  icon: typeof Users
+  to: string
+}
 
-const queue = [
-  { title: 'Profile verification request', actor: 'Amina Yusuf', type: 'User', status: 'Pending', tone: 'warning' },
-  { title: 'Reported job listing', actor: 'Trade Bridge Ltd', type: 'Jobs', status: 'Review', tone: 'danger' },
-  { title: 'Community post approval', actor: 'Export Readiness Hub', type: 'Post', status: 'Approved', tone: 'success' },
-]
+const loading = ref(false)
+const error = ref<string | null>(null)
+const usersTotal = ref(0)
+const postsTotal = ref(0)
+const questionsTotal = ref(0)
+const jobsTotal = ref(0)
+const freelancersTotal = ref(0)
+const recentPosts = ref<Post[]>([])
+const recentQuestions = ref<Question[]>([])
+
+const stats = computed<DashboardStat[]>(() => [
+  {
+    label: 'Users',
+    value: usersTotal.value,
+    detail: 'Registered accounts',
+    tone: 'accent',
+    icon: Users,
+    to: '/admin/users',
+  },
+  {
+    label: 'Posts',
+    value: postsTotal.value,
+    detail: 'Feed content',
+    tone: 'warning',
+    icon: FileText,
+    to: '/admin/posts',
+  },
+  {
+    label: 'Questions',
+    value: questionsTotal.value,
+    detail: 'Q&A threads',
+    tone: 'success',
+    icon: CircleHelp,
+    to: '/admin/questions',
+  },
+  {
+    label: 'Jobs',
+    value: jobsTotal.value,
+    detail: 'Job listings',
+    tone: 'muted',
+    icon: BriefcaseBusiness,
+    to: '/admin/jobs',
+  },
+  {
+    label: 'Freelancers',
+    value: freelancersTotal.value,
+    detail: 'Talent profiles',
+    tone: 'accent',
+    icon: UserRoundCheck,
+    to: '/admin/freelancers',
+  },
+])
+
+function formatDate(value?: string | null) {
+  if (!value) return 'Not available'
+
+  return new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(value))
+}
+
+async function fetchOverview() {
+  loading.value = true
+  error.value = null
+
+  try {
+    const [users, posts, questions, jobs, freelancers] = await Promise.all([
+      listUsers({ page: 1, per_page: 1 }),
+      listPosts({ page: 1, per_page: 5 }),
+      listQuestions({ page: 1, per_page: 5 }),
+      listJobs({ page: 1, per_page: 1 }),
+      listFreelancers({ page: 1, per_page: 1 }),
+    ])
+
+    usersTotal.value = users.total || 0
+    postsTotal.value = posts.total || 0
+    questionsTotal.value = questions.total || 0
+    jobsTotal.value = jobs.total || 0
+    freelancersTotal.value = freelancers.total || 0
+    recentPosts.value = posts.data || []
+    recentQuestions.value = questions.data || []
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Unable to load dashboard'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchOverview()
+})
 </script>
 
 <template>
@@ -20,108 +114,76 @@ const queue = [
     <section class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
       <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">
-            Admin
-          </p>
-          <h1 class="mt-2 font-display text-xl font-semibold text-[var(--text-primary)]">
-            Overview
-          </h1>
-          <p class="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">
-            Monitor platform activity, moderation queues, and operational health.
-          </p>
+          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">Admin</p>
+          <h1 class="mt-2 font-display text-xl font-semibold text-[var(--text-primary)]">Overview</h1>
+          <p class="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">Monitor live platform totals and jump into the main moderation surfaces.</p>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
-          <button class="inline-flex h-10 items-center gap-2 rounded-[0.85rem] border border-[color:var(--border-soft)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)]">
-            <Filter class="h-4 w-4" />
-            Filters
-          </button>
-          <button class="inline-flex h-10 items-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]">
-            <Download class="h-4 w-4" />
-            Export
-          </button>
-        </div>
+        <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] border border-[color:var(--border-soft)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)] disabled:opacity-60" :disabled="loading" @click="fetchOverview">
+          <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
+          Refresh
+        </button>
       </div>
     </section>
 
-    <section class="grid gap-3 md:grid-cols-3">
-      <article
+    <div v-if="loading" class="flex min-h-40 items-center justify-center gap-2 rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] text-sm font-medium text-[var(--text-secondary)]">
+      <Loader2 class="h-4 w-4 animate-spin" />
+      Loading dashboard
+    </div>
+
+    <div v-else-if="error" class="rounded-[1rem] border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-200">
+      {{ error }}
+    </div>
+
+    <section v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <RouterLink
         v-for="stat in stats"
         :key="stat.label"
-        class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4"
+        :to="stat.to"
+        class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4 hover:border-[var(--accent-soft)]"
       >
         <div class="flex items-start justify-between gap-3">
           <div>
             <p class="text-sm font-medium text-[var(--text-secondary)]">{{ stat.label }}</p>
-            <p class="mt-2 font-display text-2xl font-semibold text-[var(--text-primary)]">{{ stat.value }}</p>
+            <p class="mt-2 font-display text-3xl font-semibold text-[var(--text-primary)]">{{ stat.value }}</p>
           </div>
-          <StatusChip :tone="stat.tone as 'success' | 'warning' | 'accent'">{{ stat.detail }}</StatusChip>
+          <span class="grid h-10 w-10 place-items-center rounded-[0.85rem] bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+            <component :is="stat.icon" class="h-5 w-5" />
+          </span>
         </div>
-      </article>
+        <StatusChip class="mt-4" :tone="stat.tone">{{ stat.detail }}</StatusChip>
+      </RouterLink>
     </section>
 
-    <section class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)]">
-      <div class="flex flex-col gap-3 border-b border-[color:var(--border-soft)] p-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 class="font-display text-base font-semibold text-[var(--text-primary)]">Moderation Queue</h2>
-          <p class="mt-1 text-sm text-[var(--text-secondary)]">A compact operational list ready for real page data.</p>
+    <section class="grid gap-4 xl:grid-cols-2">
+      <div class="min-w-0 overflow-hidden rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)]">
+        <div class="border-b border-[color:var(--border-soft)] p-4">
+          <h2 class="font-display text-base font-semibold text-[var(--text-primary)]">Recent posts</h2>
+          <p class="mt-1 text-sm text-[var(--text-secondary)]">Latest loaded feed items.</p>
         </div>
-        <label class="flex h-10 items-center gap-2 rounded-[0.85rem] bg-[var(--search-bg)] px-3 text-[var(--text-tertiary)] md:w-72">
-          <Search class="h-4 w-4" />
-          <input class="min-w-0 flex-1 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]" placeholder="Search queue" type="search" />
-        </label>
+        <div v-if="recentPosts.length === 0" class="p-4 text-sm text-[var(--text-secondary)]">No recent posts loaded.</div>
+        <div v-else class="divide-y divide-[color:var(--border-soft)]">
+          <RouterLink v-for="post in recentPosts" :key="post.id" to="/admin/posts" class="block p-4 hover:bg-[var(--surface-secondary)]">
+            <p class="truncate font-semibold text-[var(--text-primary)]">{{ post.title }}</p>
+            <p class="mt-1 truncate text-sm text-[var(--text-secondary)]">{{ post.content }}</p>
+            <p class="mt-2 text-xs text-[var(--text-tertiary)]">{{ formatDate(post.created_at) }} / {{ post.comment_count }} comments</p>
+          </RouterLink>
+        </div>
       </div>
 
-      <div class="hidden overflow-x-auto md:block">
-        <table class="w-full text-left text-sm">
-          <thead class="border-b border-[color:var(--border-soft)] text-[0.72rem] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-            <tr>
-              <th class="px-4 py-3 font-semibold">Item</th>
-              <th class="px-4 py-3 font-semibold">Actor</th>
-              <th class="px-4 py-3 font-semibold">Type</th>
-              <th class="px-4 py-3 font-semibold">Status</th>
-              <th class="px-4 py-3 text-right font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-[color:var(--border-soft)]">
-            <tr v-for="item in queue" :key="item.title">
-              <td class="px-4 py-3 font-medium text-[var(--text-primary)]">{{ item.title }}</td>
-              <td class="px-4 py-3 text-[var(--text-secondary)]">{{ item.actor }}</td>
-              <td class="px-4 py-3 text-[var(--text-secondary)]">{{ item.type }}</td>
-              <td class="px-4 py-3">
-                <StatusChip :tone="item.tone as 'success' | 'warning' | 'danger'">{{ item.status }}</StatusChip>
-              </td>
-              <td class="px-4 py-3">
-                <div class="flex justify-end gap-2">
-                  <button class="inline-flex h-9 items-center gap-2 rounded-full border border-[color:var(--border-soft)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)]">
-                    <Users class="h-4 w-4" />
-                    Assign
-                  </button>
-                  <button class="inline-flex h-9 items-center gap-2 rounded-full bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]">
-                    <Check class="h-4 w-4" />
-                    Review
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="space-y-3 p-4 md:hidden">
-        <article v-for="item in queue" :key="item.title" class="rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="font-semibold text-[var(--text-primary)]">{{ item.title }}</p>
-              <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ item.actor }} · {{ item.type }}</p>
-            </div>
-            <StatusChip :tone="item.tone as 'success' | 'warning' | 'danger'">{{ item.status }}</StatusChip>
-          </div>
-          <button class="mt-3 inline-flex h-9 items-center gap-2 rounded-full bg-[var(--accent)] px-3 text-sm font-semibold text-white">
-            <Flag class="h-4 w-4" />
-            Review
-          </button>
-        </article>
+      <div class="min-w-0 overflow-hidden rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)]">
+        <div class="border-b border-[color:var(--border-soft)] p-4">
+          <h2 class="font-display text-base font-semibold text-[var(--text-primary)]">Recent questions</h2>
+          <p class="mt-1 text-sm text-[var(--text-secondary)]">Questions linked to their answers page.</p>
+        </div>
+        <div v-if="recentQuestions.length === 0" class="p-4 text-sm text-[var(--text-secondary)]">No recent questions loaded.</div>
+        <div v-else class="divide-y divide-[color:var(--border-soft)]">
+          <RouterLink v-for="question in recentQuestions" :key="question.id" :to="`/admin/questions/${question.id}/answers`" class="block p-4 hover:bg-[var(--surface-secondary)]">
+            <p class="truncate font-semibold text-[var(--text-primary)]">{{ question.title }}</p>
+            <p class="mt-1 truncate text-sm text-[var(--text-secondary)]">{{ question.body }}</p>
+            <p class="mt-2 text-xs text-[var(--text-tertiary)]">{{ question.totalAnswers }} answers / {{ formatDate(question.createdAt) }}</p>
+          </RouterLink>
+        </div>
       </div>
     </section>
   </div>

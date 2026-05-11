@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  BookOpenCheck,
   BriefcaseBusiness,
   ChevronDown,
   CircleHelp,
@@ -14,6 +13,7 @@ import {
   FileStack,
   ShieldCheck,
   Trophy,
+  UserRoundCheck,
   Users,
   X,
 } from 'lucide-vue-next'
@@ -30,15 +30,15 @@ const emit = defineEmits<{
 const route = useRoute()
 const router = useRouter()
 const communitiesOpen = ref(route.path.startsWith('/admin/communit'))
-const jobsOpen = ref(route.path.startsWith('/admin/jobs'))
+const jobsOpen = ref(route.path.startsWith('/admin/jobs') || route.path.startsWith('/admin/freelance-jobs'))
 const pagesOpen = ref(route.path.startsWith('/admin/page'))
 
 const adminLinks = [
   { label: 'HOME', to: '/admin', icon: LayoutDashboard },
   { label: 'Manage users', to: '/admin/users', icon: Users },
+  { label: 'Manage freelancers', to: '/admin/freelancers', icon: UserRoundCheck },
   { label: 'Manage questions', to: '/admin/questions', icon: CircleHelp },
-  { label: 'Moderate posts', to: '/admin/posts', icon: MessageSquareText },
-  { label: 'Manage answers', to: '/admin/answers', icon: BookOpenCheck },
+  { label: 'Manage posts', to: '/admin/posts', icon: MessageSquareText },
   { label: 'Manage adverts', to: '/admin/adverts', icon: Megaphone },
   { label: 'Manage contest', to: '/admin/contest', icon: Trophy },
   { label: 'Manage admin users', to: '/admin/admin-users', icon: ShieldCheck },
@@ -52,6 +52,7 @@ const communityLinks = [
 const jobLinks = [
   { label: 'Jobs awaiting approval', to: '/admin/jobs/awaiting-approval' },
   { label: 'Manage jobs', to: '/admin/jobs' },
+  { label: 'Freelance jobs', to: '/admin/freelance-jobs' },
 ]
 
 const pageLinks = [
