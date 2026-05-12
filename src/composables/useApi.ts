@@ -8,6 +8,20 @@ type ApiErrorResponse = {
   }
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? 'https://api.skills4export.com' : '')
+
+export function getApiUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) {
+    return path
+  }
+
+  if (!API_BASE_URL) {
+    return path
+  }
+
+  return `${API_BASE_URL.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
+}
+
 export function getAuthToken(): string | null {
   return localStorage.getItem('admin-token')
 }
@@ -43,7 +57,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
     headers.set('Authorization', `Bearer ${token}`)
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(getApiUrl(path), {
     ...options,
     headers,
   })

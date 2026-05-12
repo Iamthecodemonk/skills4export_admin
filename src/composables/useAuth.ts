@@ -1,10 +1,8 @@
-import { getApiErrorMessage } from './useApi'
+import { getApiErrorMessage, getApiUrl } from './useApi'
 
 export function isAuthenticated(): boolean {
   return !!localStorage.getItem('admin-token')
 }
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
 export async function login(email: string, password: string) {
   if (!email || !password) {
@@ -12,7 +10,7 @@ export async function login(email: string, password: string) {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/login`, {
+    const response = await fetch(getApiUrl('/api/login'), {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -48,7 +46,7 @@ export async function logout() {
   const token = localStorage.getItem('admin-token')
 
   if (token) {
-    await fetch(`${API_BASE_URL}/api/logout`, {
+    await fetch(getApiUrl('/api/logout'), {
       method: 'POST',
       headers: {
         Accept: 'application/json',
