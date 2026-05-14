@@ -96,7 +96,6 @@ const viewLoadingId = ref<string | null>(null)
 
 const name = ref('')
 const description = ref('')
-const categoryId = ref('')
 const defaultPostVisibility = ref<'public' | 'connections' | 'community'>('public')
 
 const categoryById = computed(() => {
@@ -209,7 +208,6 @@ async function createCommunity() {
       body: JSON.stringify({
         name: name.value.trim(),
         description: description.value.trim() || undefined,
-        categoryId: categoryId.value || null,
         defaultPostVisibility: defaultPostVisibility.value,
       }),
     })
@@ -217,7 +215,6 @@ async function createCommunity() {
     toast.success('Community created')
     name.value = ''
     description.value = ''
-    categoryId.value = ''
     defaultPostVisibility.value = 'public'
     showCreateForm.value = false
     page.value = 1
@@ -410,7 +407,7 @@ onMounted(() => {
         </div>
 
         <div class="mt-5 grid gap-4 md:grid-cols-2">
-          <div>
+          <div class="md:col-span-2">
             <label class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Name</label>
             <input
               v-model="name"
@@ -418,19 +415,6 @@ onMounted(() => {
               placeholder="Local Chess Club"
               type="text"
             />
-          </div>
-
-          <div>
-            <label class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Category</label>
-            <select
-              v-model="categoryId"
-              class="h-11 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--surface-primary)]"
-            >
-              <option value="">No category</option>
-              <option v-for="category in categories" :key="category.id" :value="category.id">
-                {{ category.name }}
-              </option>
-            </select>
           </div>
 
           <div>
