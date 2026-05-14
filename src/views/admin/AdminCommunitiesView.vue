@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Eye, FolderPlus, Loader2, Pencil, Plus, RefreshCw, Search, Trash2, X } from 'lucide-vue-next'
+import { Check, ChevronDown, Eye, FolderPlus, Loader2, Pencil, Plus, RefreshCw, Search, Trash2, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { apiRequest } from '../../composables/useApi'
 import StatusChip from '../../components/StatusChip.vue'
@@ -16,6 +16,7 @@ type Community = {
   categoryId?: string | null
   category_id?: string | null
   category?: CommunityCategory | null
+  icon?: string | null
   name: string
   description?: string | null
   is_active: number
@@ -82,6 +83,7 @@ const formError = ref<string | null>(null)
 const showCreateForm = ref(false)
 const editingCommunity = ref<Community | null>(null)
 const editName = ref('')
+const editIcon = ref('las la-users')
 const editDescription = ref('')
 const editDefaultPostVisibility = ref<'public' | 'connections' | 'community'>('public')
 const editIsActive = ref(1)
@@ -95,12 +97,73 @@ const viewError = ref<string | null>(null)
 const viewLoadingId = ref<string | null>(null)
 
 const name = ref('')
+const icon = ref('las la-users')
 const description = ref('')
 const defaultPostVisibility = ref<'public' | 'connections' | 'community'>('public')
+const iconPickerOpen = ref(false)
+const editIconPickerOpen = ref(false)
+const iconSearch = ref('')
+const editIconSearch = ref('')
+
+const communityIconOptions = [
+  { label: 'Users', value: 'las la-users' },
+  { label: 'Chess', value: 'las la-chess' },
+  { label: 'Globe', value: 'las la-globe' },
+  { label: 'Africa', value: 'las la-globe-africa' },
+  { label: 'Briefcase', value: 'las la-briefcase' },
+  { label: 'Handshake', value: 'las la-handshake' },
+  { label: 'Comments', value: 'las la-comments' },
+  { label: 'Question', value: 'las la-question-circle' },
+  { label: 'Laptop code', value: 'las la-laptop-code' },
+  { label: 'Code', value: 'las la-code' },
+  { label: 'Store', value: 'las la-store' },
+  { label: 'Shopping bag', value: 'las la-shopping-bag' },
+  { label: 'Chart', value: 'las la-chart-line' },
+  { label: 'Coins', value: 'las la-coins' },
+  { label: 'Landmark', value: 'las la-landmark' },
+  { label: 'Balance', value: 'las la-balance-scale' },
+  { label: 'Gavel', value: 'las la-gavel' },
+  { label: 'Tools', value: 'las la-tools' },
+  { label: 'Cogs', value: 'las la-cogs' },
+  { label: 'Helping hands', value: 'las la-hands-helping' },
+  { label: 'Teacher', value: 'las la-chalkboard-teacher' },
+  { label: 'Graduation', value: 'las la-graduation-cap' },
+  { label: 'Book', value: 'las la-book' },
+  { label: 'Book open', value: 'las la-book-open' },
+  { label: 'Flask', value: 'las la-flask' },
+  { label: 'Microscope', value: 'las la-microscope' },
+  { label: 'Stethoscope', value: 'las la-stethoscope' },
+  { label: 'Hospital', value: 'las la-hospital' },
+  { label: 'Home', value: 'las la-home' },
+  { label: 'City', value: 'las la-city' },
+  { label: 'Map marker', value: 'las la-map-marker-alt' },
+  { label: 'Seedling', value: 'las la-seedling' },
+  { label: 'Leaf', value: 'las la-leaf' },
+  { label: 'Tractor', value: 'las la-tractor' },
+  { label: 'Ship', value: 'las la-ship' },
+  { label: 'Plane', value: 'las la-plane' },
+  { label: 'Truck', value: 'las la-truck' },
+  { label: 'Camera', value: 'las la-camera' },
+  { label: 'Video', value: 'las la-video' },
+  { label: 'Microphone', value: 'las la-microphone' },
+  { label: 'Music', value: 'las la-music' },
+  { label: 'Palette', value: 'las la-palette' },
+  { label: 'Paint brush', value: 'las la-paint-brush' },
+  { label: 'Pen nib', value: 'las la-pen-nib' },
+  { label: 'Futbol', value: 'las la-futbol' },
+  { label: 'Running', value: 'las la-running' },
+  { label: 'Heartbeat', value: 'las la-heartbeat' },
+  { label: 'Heart', value: 'las la-heart' },
+  { label: 'Star', value: 'las la-star' },
+  { label: 'Lightbulb', value: 'las la-lightbulb' },
+]
 
 const categoryById = computed(() => {
   return new Map(categories.value.map((category) => [String(category.id), category]))
 })
+
+const filteredCreateIcons = computed(() => filterIcons(iconSearch.value))
+const filteredEditIcons = computed(() => filterIcons(editIconSearch.value))
 
 function getCategoryName(community: Community) {
   if (community.category?.name) {
@@ -118,6 +181,52 @@ function getCategoryName(community: Community) {
 
 function getCommunityCategoryId(community: Community) {
   return community.categoryId || community.category_id || community.category?.id || null
+}
+
+function filterIcons(value: string) {
+  const term = value.trim().toLowerCase()
+
+  if (!term) {
+    return communityIconOptions
+  }
+
+  return communityIconOptions.filter((option) => {
+    return `${option.label} ${option.value}`.toLowerCase().includes(term)
+  })
+}
+
+function normalizeCommunityIcon(value: string | null | undefined) {
+  const trimmed = (value || '').trim()
+
+  if (!trimmed) {
+    return 'las la-users'
+  }
+
+  if (/^la-[a-z0-9-]+$/.test(trimmed)) {
+    return `las ${trimmed}`
+  }
+
+  if (/^la[rsb]\s+la-[a-z0-9-]+$/.test(trimmed)) {
+    return trimmed
+  }
+
+  return 'las la-users'
+}
+
+function getCommunityIcon(community: Community) {
+  return normalizeCommunityIcon(community.icon)
+}
+
+function selectCreateIcon(value: string) {
+  icon.value = value
+  iconPickerOpen.value = false
+  iconSearch.value = ''
+}
+
+function selectEditIcon(value: string) {
+  editIcon.value = value
+  editIconPickerOpen.value = false
+  editIconSearch.value = ''
 }
 
 function formatDate(value: string) {
@@ -207,6 +316,7 @@ async function createCommunity() {
       method: 'POST',
       body: JSON.stringify({
         name: name.value.trim(),
+        icon: normalizeCommunityIcon(icon.value),
         description: description.value.trim() || undefined,
         defaultPostVisibility: defaultPostVisibility.value,
       }),
@@ -214,6 +324,9 @@ async function createCommunity() {
 
     toast.success('Community created')
     name.value = ''
+    icon.value = 'las la-users'
+    iconPickerOpen.value = false
+    iconSearch.value = ''
     description.value = ''
     defaultPostVisibility.value = 'public'
     showCreateForm.value = false
@@ -229,6 +342,7 @@ async function createCommunity() {
 function openEditModal(community: Community) {
   editingCommunity.value = community
   editName.value = community.name
+  editIcon.value = normalizeCommunityIcon(community.icon)
   editDescription.value = community.description || ''
   editDefaultPostVisibility.value = (community.default_post_visibility as 'public' | 'connections' | 'community') || 'public'
   editIsActive.value = community.is_active ? 1 : 0
@@ -242,6 +356,9 @@ function closeEditModal() {
 
   editingCommunity.value = null
   editName.value = ''
+  editIcon.value = 'las la-users'
+  editIconPickerOpen.value = false
+  editIconSearch.value = ''
   editDescription.value = ''
   editDefaultPostVisibility.value = 'public'
   editIsActive.value = 1
@@ -301,6 +418,7 @@ async function updateCommunity() {
       method: 'PUT',
       body: JSON.stringify({
         name: editName.value.trim(),
+        icon: normalizeCommunityIcon(editIcon.value),
         description: editDescription.value.trim() || undefined,
         defaultPostVisibility: editDefaultPostVisibility.value,
         is_active: editIsActive.value,
@@ -313,6 +431,9 @@ async function updateCommunity() {
     toast.success('Community updated')
     editingCommunity.value = null
     editName.value = ''
+    editIcon.value = 'las la-users'
+    editIconPickerOpen.value = false
+    editIconSearch.value = ''
     editDescription.value = ''
     editDefaultPostVisibility.value = 'public'
     editIsActive.value = 1
@@ -367,7 +488,7 @@ onMounted(() => {
             Manage Communities
           </h1>
           <p class="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">
-            Create and organize communities, assign categories, and control default post visibility.
+            Create and organize communities, choose icons, and control default post visibility.
           </p>
         </div>
 
@@ -415,6 +536,55 @@ onMounted(() => {
               placeholder="Local Chess Club"
               type="text"
             />
+          </div>
+
+          <div class="relative">
+            <label class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Icon</label>
+            <button
+              type="button"
+              class="flex h-11 w-full items-center justify-between gap-3 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-left text-sm text-[var(--text-primary)] outline-none hover:border-[var(--accent)] hover:bg-[var(--surface-primary)]"
+              :aria-expanded="iconPickerOpen"
+              @click="iconPickerOpen = !iconPickerOpen"
+            >
+              <span class="flex min-w-0 items-center gap-3">
+                <span class="grid h-8 w-8 shrink-0 place-items-center rounded-[0.75rem] bg-[var(--accent-soft)] text-xl text-[var(--accent-strong)]">
+                  <i :class="normalizeCommunityIcon(icon)" aria-hidden="true"></i>
+                </span>
+                <span class="min-w-0 truncate font-medium">{{ normalizeCommunityIcon(icon) }}</span>
+              </span>
+              <ChevronDown class="h-4 w-4 shrink-0 text-[var(--text-tertiary)]" :class="iconPickerOpen ? 'rotate-180' : ''" />
+            </button>
+
+            <div
+              v-if="iconPickerOpen"
+              class="absolute left-0 right-0 top-[4.8rem] z-20 rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-3"
+            >
+              <label class="flex h-10 items-center gap-2 rounded-[0.75rem] bg-[var(--search-bg)] px-3 text-[var(--text-tertiary)]">
+                <Search class="h-4 w-4" />
+                <input
+                  v-model="iconSearch"
+                  class="min-w-0 flex-1 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]"
+                  placeholder="Search Line Awesome icons"
+                  type="search"
+                />
+              </label>
+
+              <div class="app-scroll mt-3 grid max-h-64 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+                <button
+                  v-for="option in filteredCreateIcons"
+                  :key="option.value"
+                  type="button"
+                  class="flex min-w-0 flex-col items-center gap-1 rounded-[0.75rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-2 py-2 text-center text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent-strong)]"
+                  :class="normalizeCommunityIcon(icon) === option.value ? 'border-[var(--accent)] text-[var(--accent-strong)]' : ''"
+                  @click="selectCreateIcon(option.value)"
+                >
+                  <i :class="option.value" class="text-2xl" aria-hidden="true"></i>
+                  <span class="w-full truncate">{{ option.label }}</span>
+                </button>
+              </div>
+
+              <p v-if="filteredCreateIcons.length === 0" class="mt-3 text-center text-sm text-[var(--text-secondary)]">No matching icons</p>
+            </div>
           </div>
 
           <div>
@@ -540,8 +710,15 @@ onMounted(() => {
           <tbody class="divide-y divide-[color:var(--border-soft)]">
             <tr v-for="community in communities" :key="community.id">
               <td class="px-4 py-3">
-                <p class="font-semibold text-[var(--text-primary)]">{{ community.name }}</p>
-                <p class="mt-1 max-w-md truncate text-sm text-[var(--text-secondary)]">{{ community.description || 'No description' }}</p>
+                <div class="flex min-w-0 items-start gap-3">
+                  <span class="grid h-10 w-10 shrink-0 place-items-center rounded-[0.8rem] bg-[var(--accent-soft)] text-xl text-[var(--accent-strong)]">
+                    <i :class="getCommunityIcon(community)" aria-hidden="true"></i>
+                  </span>
+                  <div class="min-w-0">
+                    <p class="truncate font-semibold text-[var(--text-primary)]">{{ community.name }}</p>
+                    <p class="mt-1 max-w-md truncate text-sm text-[var(--text-secondary)]">{{ community.description || 'No description' }}</p>
+                  </div>
+                </div>
               </td>
               <td class="px-4 py-3 text-[var(--text-secondary)]">{{ getCategoryName(community) }}</td>
               <td class="px-4 py-3 capitalize text-[var(--text-secondary)]">{{ community.default_post_visibility || 'Public' }}</td>
@@ -595,9 +772,14 @@ onMounted(() => {
           class="rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3"
         >
           <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="font-semibold text-[var(--text-primary)]">{{ community.name }}</p>
-              <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ getCategoryName(community) }}</p>
+            <div class="flex min-w-0 items-start gap-3">
+              <span class="grid h-10 w-10 shrink-0 place-items-center rounded-[0.8rem] bg-[var(--accent-soft)] text-xl text-[var(--accent-strong)]">
+                <i :class="getCommunityIcon(community)" aria-hidden="true"></i>
+              </span>
+              <div class="min-w-0">
+                <p class="truncate font-semibold text-[var(--text-primary)]">{{ community.name }}</p>
+                <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ getCategoryName(community) }}</p>
+              </div>
             </div>
             <StatusChip :tone="community.is_active ? 'success' : 'muted'">
               {{ community.is_active ? 'Active' : 'Inactive' }}
@@ -677,7 +859,11 @@ onMounted(() => {
     >
       <section class="app-scroll max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-y-auto rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
         <div class="flex items-start justify-between gap-3">
-          <div>
+          <div class="flex min-w-0 items-start gap-3">
+            <span class="grid h-12 w-12 shrink-0 place-items-center rounded-[0.9rem] bg-[var(--accent-soft)] text-2xl text-[var(--accent-strong)]">
+              <i :class="getCommunityIcon(viewingCommunity)" aria-hidden="true"></i>
+            </span>
+            <div class="min-w-0">
             <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">
               Community details
             </p>
@@ -687,6 +873,7 @@ onMounted(() => {
             <p class="mt-1 text-sm text-[var(--text-secondary)]">
               {{ getCategoryName(viewingCommunity) }}
             </p>
+            </div>
           </div>
 
           <button
@@ -729,6 +916,13 @@ onMounted(() => {
           </div>
 
           <div class="space-y-3 rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3">
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-sm text-[var(--text-secondary)]">Icon</span>
+              <span class="inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+                <i :class="getCommunityIcon(viewingCommunity)" class="text-xl text-[var(--accent-strong)]" aria-hidden="true"></i>
+                {{ getCommunityIcon(viewingCommunity) }}
+              </span>
+            </div>
             <div class="flex items-center justify-between gap-3">
               <span class="text-sm text-[var(--text-secondary)]">Status</span>
               <StatusChip :tone="viewingCommunity.is_active ? 'success' : 'muted'">
@@ -799,6 +993,56 @@ onMounted(() => {
               class="h-11 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--surface-primary)]"
               type="text"
             />
+          </div>
+
+          <div class="relative">
+            <label class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Icon</label>
+            <button
+              type="button"
+              class="flex h-11 w-full items-center justify-between gap-3 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-left text-sm text-[var(--text-primary)] outline-none hover:border-[var(--accent)] hover:bg-[var(--surface-primary)]"
+              :aria-expanded="editIconPickerOpen"
+              @click="editIconPickerOpen = !editIconPickerOpen"
+            >
+              <span class="flex min-w-0 items-center gap-3">
+                <span class="grid h-8 w-8 shrink-0 place-items-center rounded-[0.75rem] bg-[var(--accent-soft)] text-xl text-[var(--accent-strong)]">
+                  <i :class="normalizeCommunityIcon(editIcon)" aria-hidden="true"></i>
+                </span>
+                <span class="min-w-0 truncate font-medium">{{ normalizeCommunityIcon(editIcon) }}</span>
+              </span>
+              <ChevronDown class="h-4 w-4 shrink-0 text-[var(--text-tertiary)]" :class="editIconPickerOpen ? 'rotate-180' : ''" />
+            </button>
+
+            <div
+              v-if="editIconPickerOpen"
+              class="absolute left-0 right-0 top-[4.8rem] z-20 rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-3"
+            >
+              <label class="flex h-10 items-center gap-2 rounded-[0.75rem] bg-[var(--search-bg)] px-3 text-[var(--text-tertiary)]">
+                <Search class="h-4 w-4" />
+                <input
+                  v-model="editIconSearch"
+                  class="min-w-0 flex-1 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]"
+                  placeholder="Search Line Awesome icons"
+                  type="search"
+                />
+              </label>
+
+              <div class="app-scroll mt-3 grid max-h-64 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+                <button
+                  v-for="option in filteredEditIcons"
+                  :key="option.value"
+                  type="button"
+                  class="flex min-w-0 flex-col items-center gap-1 rounded-[0.75rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-2 py-2 text-center text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent-strong)]"
+                  :class="normalizeCommunityIcon(editIcon) === option.value ? 'border-[var(--accent)] text-[var(--accent-strong)]' : ''"
+                  @click="selectEditIcon(option.value)"
+                >
+                  <i :class="option.value" class="text-2xl" aria-hidden="true"></i>
+                  <span class="w-full truncate">{{ option.label }}</span>
+                  <Check v-if="normalizeCommunityIcon(editIcon) === option.value" class="h-3.5 w-3.5 text-[var(--accent-strong)]" />
+                </button>
+              </div>
+
+              <p v-if="filteredEditIcons.length === 0" class="mt-3 text-center text-sm text-[var(--text-secondary)]">No matching icons</p>
+            </div>
           </div>
 
           <div>
