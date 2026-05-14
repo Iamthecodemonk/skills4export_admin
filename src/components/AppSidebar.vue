@@ -45,7 +45,6 @@ const adminLinks = [
 ]
 
 const communityLinks = [
-  { label: 'Community categories', to: '/admin/community-categories' },
   { label: 'Communities', to: '/admin/communities' },
 ]
 
