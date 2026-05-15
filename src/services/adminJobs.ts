@@ -1,6 +1,6 @@
 import { apiRequest } from '../composables/useApi'
 
-export type JobStatus = 'draft' | 'pending_review' | 'live' | 'closed' | 'archived'
+export type JobStatus = 'draft' | 'pending_review' | 'live' | 'approved' | 'active' | 'closed' | 'archived' | 'deleted' | 'suspended'
 export type JobType = 'full-time' | 'part-time' | 'contract' | 'hybrid' | 'remote'
 export type WorkMode = 'remote' | 'hybrid' | 'onsite'
 
@@ -108,7 +108,15 @@ export async function createJob(payload: CreateJobPayload) {
   })
 }
 
+export async function updateJobStatus(id: string, status: JobStatus) {
+  return apiRequest<CreateJobResponse>(`/api/jobs/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
+}
+
 export default {
   listJobs,
   createJob,
+  updateJobStatus,
 }

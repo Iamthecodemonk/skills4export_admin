@@ -183,6 +183,14 @@ function getCommunityCategoryId(community: Community) {
   return community.categoryId || community.category_id || community.category?.id || null
 }
 
+function getPostVisibilityLabel(value?: string | null) {
+  if (value === 'community') {
+    return 'Vertical'
+  }
+
+  return 'Horizontal'
+}
+
 function filterIcons(value: string) {
   const term = value.trim().toLowerCase()
 
@@ -344,7 +352,7 @@ function openEditModal(community: Community) {
   editName.value = community.name
   editIcon.value = normalizeCommunityIcon(community.icon)
   editDescription.value = community.description || ''
-  editDefaultPostVisibility.value = (community.default_post_visibility as 'public' | 'connections' | 'community') || 'public'
+  editDefaultPostVisibility.value = community.default_post_visibility === 'community' ? 'community' : 'public'
   editIsActive.value = community.is_active ? 1 : 0
   editError.value = null
 }
@@ -593,9 +601,8 @@ onMounted(() => {
               v-model="defaultPostVisibility"
               class="h-11 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--surface-primary)]"
             >
-              <option value="public">Public</option>
-              <option value="connections">Connections</option>
-              <option value="community">Community</option>
+              <option value="public">Horizontal</option>
+              <option value="community">Vertical</option>
             </select>
           </div>
 
@@ -721,7 +728,7 @@ onMounted(() => {
                 </div>
               </td>
               <td class="px-4 py-3 text-[var(--text-secondary)]">{{ getCategoryName(community) }}</td>
-              <td class="px-4 py-3 capitalize text-[var(--text-secondary)]">{{ community.default_post_visibility || 'Public' }}</td>
+              <td class="px-4 py-3 text-[var(--text-secondary)]">{{ getPostVisibilityLabel(community.default_post_visibility) }}</td>
               <td class="px-4 py-3">
                 <StatusChip :tone="community.is_active ? 'success' : 'muted'">
                   {{ community.is_active ? 'Active' : 'Inactive' }}
@@ -787,7 +794,7 @@ onMounted(() => {
           </div>
           <p class="mt-3 text-sm text-[var(--text-secondary)]">{{ community.description || 'No description' }}</p>
           <div class="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--text-tertiary)]">
-            <span class="capitalize">{{ community.default_post_visibility || 'Public' }}</span>
+            <span>{{ getPostVisibilityLabel(community.default_post_visibility) }}</span>
             <div class="flex gap-2">
               <button
                 type="button"
@@ -931,7 +938,7 @@ onMounted(() => {
             </div>
             <div class="flex items-center justify-between gap-3">
               <span class="text-sm text-[var(--text-secondary)]">Default visibility</span>
-              <span class="text-sm font-semibold capitalize text-[var(--text-primary)]">{{ viewingCommunity.default_post_visibility || 'Public' }}</span>
+              <span class="text-sm font-semibold text-[var(--text-primary)]">{{ getPostVisibilityLabel(viewingCommunity.default_post_visibility) }}</span>
             </div>
             <div class="flex items-center justify-between gap-3">
               <span class="text-sm text-[var(--text-secondary)]">Created</span>
@@ -1060,9 +1067,8 @@ onMounted(() => {
                 v-model="editDefaultPostVisibility"
                 class="h-11 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--surface-primary)]"
               >
-                <option value="public">Public</option>
-                <option value="connections">Connections</option>
-                <option value="community">Community</option>
+                <option value="public">Horizontal</option>
+                <option value="community">Vertical</option>
               </select>
             </div>
 

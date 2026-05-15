@@ -14,15 +14,29 @@ import {
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
-import { createJob, listJobs, type Job, type JobStatus, type JobType, type WorkMode } from '../../services'
+import { createJob, listJobs, updateJobStatus, type Job, type JobStatus, type JobType, type WorkMode } from '../../services'
+
+const props = withDefaults(defineProps<{
+  defaultStatus?: JobStatus | ''
+  pageTitle?: string
+  pageDescription?: string
+}>(), {
+  defaultStatus: '',
+  pageTitle: 'Manage Jobs',
+  pageDescription: 'Create postings, review approvals, inspect applicants, and manage the public job feed.',
+})
 
 const statusOptions: Array<{ label: string; value: JobStatus | '' }> = [
   { label: 'All statuses', value: '' },
   { label: 'Draft', value: 'draft' },
   { label: 'Pending review', value: 'pending_review' },
   { label: 'Live', value: 'live' },
+  { label: 'Approved', value: 'approved' },
+  { label: 'Active', value: 'active' },
   { label: 'Closed', value: 'closed' },
   { label: 'Archived', value: 'archived' },
+  { label: 'Suspended', value: 'suspended' },
+  { label: 'Deleted', value: 'deleted' },
 ]
 
 const typeOptions: Array<{ label: string; value: JobType | '' }> = [
@@ -50,7 +64,7 @@ const sortOptions = [
 
 const jobs = ref<Job[]>([])
 const query = ref('')
-const status = ref<JobStatus | ''>('')
+const status = ref<JobStatus | ''>(props.defaultStatus)
 const sort = ref('')
 const location = ref('')
 const type = ref<JobType | ''>('')
@@ -69,6 +83,7 @@ const error = ref<string | null>(null)
 const formError = ref<string | null>(null)
 const showCreateForm = ref(false)
 const viewingJob = ref<Job | null>(null)
+const updatingStatusId = ref<string | null>(null)
 
 const title = ref('')
 const companyName = ref('')
@@ -94,8 +109,8 @@ const jobStats = computed(() => [
     icon: BriefcaseBusiness,
   },
   {
-    label: 'Live jobs',
-    value: jobs.value.filter((job) => job.status === 'live').length,
+    label: 'Public jobs',
+    value: jobs.value.filter((job) => ['live', 'approved', 'active'].includes(job.status)).length,
     detail: 'On this page',
     icon: CalendarDays,
   },
@@ -134,9 +149,9 @@ function formatLabel(value?: string | null) {
 }
 
 function statusTone(value: JobStatus) {
-  if (value === 'live') return 'success'
+  if (value === 'live' || value === 'approved' || value === 'active') return 'success'
   if (value === 'pending_review') return 'warning'
-  if (value === 'closed' || value === 'archived') return 'danger'
+  if (value === 'closed' || value === 'archived' || value === 'deleted' || value === 'suspended') return 'danger'
   return 'muted'
 }
 
@@ -211,7 +226,7 @@ function applyFilters() {
 
 function resetFilters() {
   query.value = ''
-  status.value = ''
+  status.value = props.defaultStatus
   sort.value = ''
   location.value = ''
   type.value = ''
@@ -224,6 +239,21 @@ function resetFilters() {
 function goToPage(nextPage: number) {
   page.value = Math.min(Math.max(nextPage, 1), lastPage.value)
   fetchJobs()
+}
+
+async function changeJobStatus(job: Job, nextStatus: JobStatus) {
+  updatingStatusId.value = job.id
+
+  try {
+    const response = await updateJobStatus(job.id, nextStatus)
+    jobs.value = jobs.value.map((item) => item.id === response.data.id ? response.data : item)
+    if (viewingJob.value?.id === job.id) viewingJob.value = response.data
+    toast.success(`Job moved to ${formatLabel(nextStatus)}`)
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Unable to update job status')
+  } finally {
+    updatingStatusId.value = null
+  }
 }
 
 function resetCreateForm() {
@@ -297,9 +327,9 @@ onMounted(() => {
       <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">Jobs</p>
-          <h1 class="mt-2 font-display text-xl font-semibold text-[var(--text-primary)]">Manage Jobs</h1>
+          <h1 class="mt-2 font-display text-xl font-semibold text-[var(--text-primary)]">{{ pageTitle }}</h1>
           <p class="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">
-            Review job feed listings, filter by role metadata, and create postings for the public jobs directory.
+            {{ pageDescription }}
           </p>
         </div>
 
@@ -491,13 +521,13 @@ onMounted(() => {
         <table class="w-full min-w-[62rem] table-fixed text-left text-sm">
           <thead class="border-b border-[color:var(--border-soft)] text-[0.72rem] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
             <tr>
-              <th class="w-[32%] px-4 py-3 font-semibold">Job</th>
+              <th class="w-[30%] px-4 py-3 font-semibold">Job</th>
               <th class="w-[16%] px-4 py-3 font-semibold">Company</th>
               <th class="w-[14%] px-4 py-3 font-semibold">Location</th>
               <th class="w-[13%] px-4 py-3 font-semibold">Type</th>
               <th class="w-[9%] px-4 py-3 font-semibold">Applicants</th>
               <th class="w-[10%] px-4 py-3 font-semibold">Status</th>
-              <th class="w-[6%] px-4 py-3 text-right font-semibold">Actions</th>
+              <th class="w-[8%] px-4 py-3 text-right font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-[color:var(--border-soft)]">
@@ -520,10 +550,13 @@ onMounted(() => {
                 <StatusChip :tone="statusTone(job.status)">{{ formatLabel(job.status) }}</StatusChip>
               </td>
               <td class="px-4 py-3">
-                <div class="flex justify-end">
+                <div class="flex justify-end gap-2">
                   <button type="button" class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-[color:var(--border-soft)] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]" :title="`View ${job.title}`" @click="viewingJob = job">
                     <Eye class="h-4 w-4" />
                   </button>
+                  <select class="h-9 rounded-[0.75rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-2 text-xs capitalize outline-none focus:border-[var(--accent)] disabled:opacity-60" :disabled="updatingStatusId === job.id" :value="job.status" @change="changeJobStatus(job, ($event.target as HTMLSelectElement).value as JobStatus)">
+                    <option v-for="option in statusOptions.filter((item) => item.value)" :key="option.value" :value="option.value">{{ option.label }}</option>
+                  </select>
                 </div>
               </td>
             </tr>
@@ -580,6 +613,9 @@ onMounted(() => {
           <StatusChip :tone="statusTone(viewingJob.status)">{{ formatLabel(viewingJob.status) }}</StatusChip>
           <StatusChip tone="accent">{{ formatLabel(viewingJob.type) }}</StatusChip>
           <StatusChip tone="muted">{{ formatLabel(viewingJob.workMode) }}</StatusChip>
+          <select class="h-9 rounded-[0.75rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-2 text-xs capitalize outline-none focus:border-[var(--accent)] disabled:opacity-60" :disabled="updatingStatusId === viewingJob.id" :value="viewingJob.status" @change="changeJobStatus(viewingJob, ($event.target as HTMLSelectElement).value as JobStatus)">
+            <option v-for="option in statusOptions.filter((item) => item.value)" :key="option.value" :value="option.value">{{ option.label }}</option>
+          </select>
         </div>
 
         <div class="mt-5 grid gap-3 sm:grid-cols-2">

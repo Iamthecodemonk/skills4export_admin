@@ -1,6 +1,6 @@
 import { apiRequest } from '../composables/useApi'
 
-export type FreelanceJobStatus = 'pending_review' | 'live' | 'closed' | 'archived'
+export type FreelanceJobStatus = 'pending_review' | 'live' | 'approved' | 'active' | 'closed' | 'archived' | 'deleted' | 'suspended'
 export type FreelanceJobType = 'contract' | 'part-time' | 'project-based' | 'remote' | 'hybrid'
 
 export type FreelanceJob = {
@@ -118,6 +118,13 @@ export async function deleteFreelanceJob(id: string) {
   })
 }
 
+export async function updateFreelanceJobStatus(id: string, status: FreelanceJobStatus) {
+  return apiRequest<FreelanceJobApiDataResponse<FreelanceJob>>(`/api/freelance-jobs/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
+}
+
 export async function listMyFreelanceJobs(params: FreelanceJobParams = {}) {
   return apiRequest<FreelanceJobPaginator<FreelanceJob>>(buildPath('/api/me/freelance-jobs/posted', params))
 }
@@ -130,6 +137,7 @@ export default {
   listFreelanceJobs,
   createFreelanceJob,
   deleteFreelanceJob,
+  updateFreelanceJobStatus,
   listMyFreelanceJobs,
   listMyFreelanceApplications,
 }

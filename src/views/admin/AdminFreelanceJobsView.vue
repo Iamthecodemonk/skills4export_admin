@@ -9,6 +9,7 @@ import {
   listFreelanceJobs,
   listMyFreelanceApplications,
   listMyFreelanceJobs,
+  updateFreelanceJobStatus,
   type FreelanceApplication,
   type FreelanceJob,
   type FreelanceJobStatus,
@@ -27,8 +28,12 @@ const statusOptions: Array<{ label: string; value: FreelanceJobStatus | '' }> = 
   { label: 'All statuses', value: '' },
   { label: 'Pending review', value: 'pending_review' },
   { label: 'Live', value: 'live' },
+  { label: 'Approved', value: 'approved' },
+  { label: 'Active', value: 'active' },
   { label: 'Closed', value: 'closed' },
   { label: 'Archived', value: 'archived' },
+  { label: 'Suspended', value: 'suspended' },
+  { label: 'Deleted', value: 'deleted' },
 ]
 
 const typeOptions: Array<{ label: string; value: FreelanceJobType | '' }> = [
@@ -63,6 +68,7 @@ const formError = ref<string | null>(null)
 const showCreateForm = ref(false)
 const viewingJob = ref<FreelanceJob | null>(null)
 const viewingApplication = ref<FreelanceApplication | null>(null)
+const updatingStatusId = ref<string | null>(null)
 
 const title = ref('')
 const companyName = ref('')
@@ -90,9 +96,9 @@ function formatLabel(value?: string | null) {
 }
 
 function statusTone(value: string) {
-  if (value === 'live' || value === 'submitted') return 'success'
+  if (value === 'live' || value === 'approved' || value === 'active' || value === 'submitted') return 'success'
   if (value === 'pending_review') return 'warning'
-  if (value === 'closed' || value === 'archived') return 'danger'
+  if (value === 'closed' || value === 'archived' || value === 'deleted' || value === 'suspended') return 'danger'
   return 'muted'
 }
 
@@ -271,6 +277,21 @@ async function removeFreelanceJob(job: FreelanceJob) {
   }
 }
 
+async function changeFreelanceJobStatus(job: FreelanceJob, nextStatus: FreelanceJobStatus) {
+  updatingStatusId.value = job.id
+
+  try {
+    const response = await updateFreelanceJobStatus(job.id, nextStatus)
+    jobs.value = jobs.value.map((item) => item.id === response.data.id ? response.data : item)
+    if (viewingJob.value?.id === job.id) viewingJob.value = response.data
+    toast.success(`Freelance job moved to ${formatLabel(nextStatus)}`)
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Unable to update freelance job status')
+  } finally {
+    updatingStatusId.value = null
+  }
+}
+
 onMounted(() => {
   fetchRows()
 })
@@ -406,6 +427,9 @@ onMounted(() => {
               <td class="px-4 py-3">
                 <div class="flex justify-end gap-2">
                   <button type="button" class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-[color:var(--border-soft)] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]" @click="viewingJob = job"><Eye class="h-4 w-4" /></button>
+                  <select class="h-9 rounded-[0.75rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-2 text-xs capitalize outline-none focus:border-[var(--accent)] disabled:opacity-60" :disabled="updatingStatusId === job.id" :value="job.status" @change="changeFreelanceJobStatus(job, ($event.target as HTMLSelectElement).value as FreelanceJobStatus)">
+                    <option v-for="option in statusOptions.filter((item) => item.value)" :key="option.value" :value="option.value">{{ option.label }}</option>
+                  </select>
                   <button type="button" class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-60 dark:border-red-400/20 dark:text-red-200 dark:hover:bg-red-400/10" :disabled="deletingId === job.id" @click="removeFreelanceJob(job)">
                     <Loader2 v-if="deletingId === job.id" class="h-4 w-4 animate-spin" />
                     <Trash2 v-else class="h-4 w-4" />
@@ -456,6 +480,9 @@ onMounted(() => {
           <StatusChip :tone="statusTone(viewingJob.status)">{{ formatLabel(viewingJob.status) }}</StatusChip>
           <StatusChip tone="accent">{{ formatLabel(viewingJob.type) }}</StatusChip>
           <StatusChip :tone="viewingJob.verified ? 'success' : 'muted'">{{ viewingJob.verified ? 'Verified' : 'Unverified' }}</StatusChip>
+          <select class="h-9 rounded-[0.75rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-2 text-xs capitalize outline-none focus:border-[var(--accent)] disabled:opacity-60" :disabled="updatingStatusId === viewingJob.id" :value="viewingJob.status" @change="changeFreelanceJobStatus(viewingJob, ($event.target as HTMLSelectElement).value as FreelanceJobStatus)">
+            <option v-for="option in statusOptions.filter((item) => item.value)" :key="option.value" :value="option.value">{{ option.label }}</option>
+          </select>
         </div>
         <div class="mt-5 space-y-4">
           <div class="rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3">

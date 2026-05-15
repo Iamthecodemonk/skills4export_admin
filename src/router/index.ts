@@ -13,13 +13,12 @@ import AdminUsersView from '../views/admin/AdminUsersView.vue'
 import AdminFreelancersView from '../views/admin/AdminFreelancersView.vue'
 import AdminPostsView from '../views/admin/AdminPostsView.vue'
 import AdminFreelanceJobsView from '../views/admin/AdminFreelanceJobsView.vue'
+import AdminAdvertsView from '../views/admin/AdminAdvertsView.vue'
 import { isAuthenticated } from '../composables/useAuth'
 
 const adminPlaceholderRoutes = [
-  { path: '/admin/adverts', name: 'Manage adverts', title: 'Manage adverts' },
   { path: '/admin/contest', name: 'Manage contest', title: 'Manage contest' },
   { path: '/admin/admin-users', name: 'Manage admin users', title: 'Manage admin users' },
-  { path: '/admin/jobs/awaiting-approval', name: 'Jobs awaiting approval', title: 'Jobs awaiting approval' },
 ]
 
 const router = createRouter({
@@ -87,6 +86,22 @@ const router = createRouter({
       path: '/admin/jobs',
       name: 'Manage jobs',
       component: AdminJobsView,
+      props: {
+        defaultStatus: 'approved',
+        pageTitle: 'Active Jobs',
+        pageDescription: 'Manage approved and active regular jobs. Public feeds show approved, active, and legacy live jobs.',
+      },
+      meta: { layout: 'app', requiresAuth: true },
+    },
+    {
+      path: '/admin/jobs/awaiting-approval',
+      name: 'Jobs awaiting approval',
+      component: AdminJobsView,
+      props: {
+        defaultStatus: 'pending_review',
+        pageTitle: 'Jobs Awaiting Approval',
+        pageDescription: 'Review pending regular jobs and approve, suspend, delete, or archive them.',
+      },
       meta: { layout: 'app', requiresAuth: true },
     },
     {
@@ -99,6 +114,12 @@ const router = createRouter({
       path: '/admin/freelance-jobs',
       name: 'Manage freelance jobs',
       component: AdminFreelanceJobsView,
+      meta: { layout: 'app', requiresAuth: true },
+    },
+    {
+      path: '/admin/adverts',
+      name: 'Manage adverts',
+      component: AdminAdvertsView,
       meta: { layout: 'app', requiresAuth: true },
     },
     ...adminPlaceholderRoutes.map((route) => ({
