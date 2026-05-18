@@ -249,6 +249,7 @@ onMounted(() => {
 
         <div class="flex flex-wrap items-center gap-2">
           <button
+            v-if="false"
             type="button"
             class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] border border-[color:var(--border-soft)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="loading"
@@ -258,6 +259,7 @@ onMounted(() => {
             Refresh
           </button>
           <button
+            v-if="false"
             type="button"
             class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]"
             @click="showCreateForm = !showCreateForm"
@@ -270,7 +272,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section v-if="showCreateForm" class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
+    <section v-if="false && showCreateForm" class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
       <form class="mx-auto max-w-3xl" @submit.prevent="createNewUser">
         <div class="flex items-start gap-3">
           <span class="grid h-10 w-10 shrink-0 place-items-center rounded-[0.85rem] bg-[var(--accent-soft)] text-[var(--accent-strong)]">

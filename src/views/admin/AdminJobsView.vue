@@ -335,6 +335,7 @@ onMounted(() => {
 
         <div class="flex flex-wrap items-center gap-2">
           <button
+            v-if="false"
             type="button"
             class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] border border-[color:var(--border-soft)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="loading"

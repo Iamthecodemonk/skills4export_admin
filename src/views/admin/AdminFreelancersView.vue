@@ -266,7 +266,7 @@ onMounted(() => {
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
             Refresh
           </button>
-          <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]" @click="showCreateForm = !showCreateForm">
+          <button v-if="false" type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]" @click="showCreateForm = !showCreateForm">
             <X v-if="showCreateForm" class="h-4 w-4" />
             <Plus v-else class="h-4 w-4" />
             {{ showCreateForm ? 'Close form' : 'New freelancer' }}
@@ -275,7 +275,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section v-if="showCreateForm" class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
+    <section v-if="false && showCreateForm" class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
       <form class="mx-auto max-w-4xl" @submit.prevent="createNewFreelancer">
         <div class="flex items-start gap-3">
           <span class="grid h-10 w-10 shrink-0 place-items-center rounded-[0.85rem] bg-[var(--accent-soft)] text-[var(--accent-strong)]">

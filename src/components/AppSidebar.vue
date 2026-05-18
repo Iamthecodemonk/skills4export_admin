@@ -49,14 +49,12 @@ const communityLinks = [
 ]
 
 const jobLinks = [
-  { label: 'Jobs awaiting approval', to: '/admin/jobs/awaiting-approval' },
   { label: 'Manage jobs', to: '/admin/jobs' },
   { label: 'Freelance jobs', to: '/admin/freelance-jobs' },
 ]
 
 const pageLinks = [
   { label: 'Page categories', to: '/admin/page-categories' },
-  { label: 'Pages', to: '/admin/pages' },
 ]
 
 const communitiesActive = computed(() => {
