@@ -58,6 +58,7 @@ const statusOptions: Array<{ label: string; value: JobStatus | '' }> = [
 
 const adminJobStatuses: JobStatus[] = ['pending_review', 'approved', 'active', 'live', 'draft', 'closed', 'archived', 'suspended', 'deleted']
 const adminFreelanceJobStatuses: FreelanceJobStatus[] = ['pending_review', 'approved', 'active', 'live', 'closed', 'archived', 'suspended', 'deleted']
+const jobsDebugPrefix = '[AdminJobs]'
 
 const typeOptions: Array<{ label: string; value: JobType | '' }> = [
   { label: 'All types', value: '' },
@@ -261,6 +262,12 @@ async function fetchJobs() {
       skill: skill.value,
     }
 
+    console.info(jobsDebugPrefix, 'fetch:start', {
+      tab: activeFeedTab.value,
+      status: status.value || 'all',
+      params,
+    })
+
     const response = activeFeedTab.value === 'regular'
       ? status.value
         ? await fetchRegularJobStatus(params, status.value)
@@ -281,10 +288,24 @@ async function fetchJobs() {
     perPage.value = response.per_page || perPage.value
     from.value = response.from
     to.value = response.to
+
+    console.info(jobsDebugPrefix, 'fetch:success', {
+      tab: activeFeedTab.value,
+      status: status.value || 'all',
+      rows: response.data?.length || 0,
+      total: response.total || 0,
+      currentPage: response.current_page,
+      lastPage: response.last_page,
+    })
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Unable to load jobs'
     jobs.value = []
     freelanceJobs.value = []
+    console.error(jobsDebugPrefix, 'fetch:error', {
+      tab: activeFeedTab.value,
+      status: status.value || 'all',
+      error: err,
+    })
   } finally {
     loading.value = false
   }
@@ -331,6 +352,16 @@ async function fetchRegularJobStatus(params: {
   ])
   const merged = paginateMergedJobs([...(publicResponse.data || []), ...(postedResponse.data || [])], params.page, params.per_page)
 
+  console.info(jobsDebugPrefix, 'regular:status', {
+    status: jobStatus,
+    publicRows: publicResponse.data?.length || 0,
+    publicTotal: publicResponse.total || 0,
+    postedRows: postedResponse.data?.length || 0,
+    postedTotal: postedResponse.total || 0,
+    mergedRows: merged.data.length,
+    mergedTotal: merged.total,
+  })
+
   return {
     ...publicResponse,
     ...merged,
@@ -360,6 +391,16 @@ async function fetchFreelanceJobStatus(params: {
   ])
   const merged = paginateMergedJobs([...(publicResponse.data || []), ...(postedResponse.data || [])], params.page, params.per_page)
 
+  console.info(jobsDebugPrefix, 'freelance:status', {
+    status: jobStatus,
+    publicRows: publicResponse.data?.length || 0,
+    publicTotal: publicResponse.total || 0,
+    postedRows: postedResponse.data?.length || 0,
+    postedTotal: postedResponse.total || 0,
+    mergedRows: merged.data.length,
+    mergedTotal: merged.total,
+  })
+
   return {
     ...publicResponse,
     ...merged,
@@ -380,6 +421,13 @@ async function fetchAllRegularJobStatuses(params: {
   const data = responses.flatMap((response) => response.data || [])
   const merged = paginateMergedJobs(data, params.page, params.per_page)
 
+  console.info(jobsDebugPrefix, 'regular:all-statuses', {
+    statuses: adminJobStatuses,
+    collectedRows: data.length,
+    mergedRows: merged.data.length,
+    mergedTotal: merged.total,
+  })
+
   return {
     ...responses[0],
     ...merged,
@@ -399,6 +447,13 @@ async function fetchAllFreelanceJobStatuses(params: {
   const responses = await Promise.all(adminFreelanceJobStatuses.map((jobStatus) => fetchFreelanceJobStatus(params, jobStatus)))
   const data = responses.flatMap((response) => response.data || [])
   const merged = paginateMergedJobs(data, params.page, params.per_page)
+
+  console.info(jobsDebugPrefix, 'freelance:all-statuses', {
+    statuses: adminFreelanceJobStatuses,
+    collectedRows: data.length,
+    mergedRows: merged.data.length,
+    mergedTotal: merged.total,
+  })
 
   return {
     ...responses[0],
