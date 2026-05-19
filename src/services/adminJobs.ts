@@ -101,6 +101,18 @@ export async function listJobs(params: ListJobsParams = {}) {
   return apiRequest<ListJobsResponse>(path, { method: 'GET' })
 }
 
+export async function listMyPostedJobs(params: ListJobsParams = {}) {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && String(v) !== '') {
+      search.set(k, String(v))
+    }
+  })
+
+  const path = `/api/me/jobs/posted${search.toString() ? `?${search.toString()}` : ''}`
+  return apiRequest<ListJobsResponse>(path, { method: 'GET' })
+}
+
 export async function createJob(payload: CreateJobPayload) {
   return apiRequest<CreateJobResponse>('/api/jobs', {
     method: 'POST',
@@ -117,6 +129,7 @@ export async function updateJobStatus(id: string, status: JobStatus) {
 
 export default {
   listJobs,
+  listMyPostedJobs,
   createJob,
   updateJobStatus,
 }
