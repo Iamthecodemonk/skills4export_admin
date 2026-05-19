@@ -825,7 +825,7 @@ onMounted(() => {
               <th class="w-[14%] px-4 py-3 font-semibold">Return email</th>
               <th class="w-[12%] px-4 py-3 font-semibold">End Date</th>
               <th class="w-[12%] px-4 py-3 font-semibold">Status</th>
-              <th class="w-[8%] px-4 py-3 text-right font-semibold">Action</th>
+              <th class="w-[10rem] px-4 py-3 text-right font-semibold">Action</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-[color:var(--border-soft)]">
@@ -854,7 +854,7 @@ onMounted(() => {
                     <Loader2 v-if="updatingStatusId === job.id" class="h-4 w-4 animate-spin" />
                     <MoreVertical v-else class="h-4 w-4" />
                   </button>
-                  <div v-if="actionMenuId === getActionMenuKey('regular', job.id)" class="absolute right-0 top-10 z-50 w-40 overflow-hidden rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-1">
+                  <div v-if="actionMenuId === getActionMenuKey('regular', job.id)" class="absolute right-12 top-0 z-50 w-40 overflow-hidden rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-1">
                     <button v-for="action in regularJobActions(job)" :key="action.status" type="button" class="flex w-full rounded-[0.65rem] px-3 py-2 text-left text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]" :class="action.tone === 'danger' ? 'text-red-600 hover:text-red-700 dark:text-red-300' : ''" @click="changeJobStatus(job, action.status)">
                       {{ action.label }}
                     </button>
@@ -877,7 +877,7 @@ onMounted(() => {
               <th class="w-[14%] px-4 py-3 font-semibold">Return email</th>
               <th class="w-[12%] px-4 py-3 font-semibold">End Date</th>
               <th class="w-[12%] px-4 py-3 font-semibold">Status</th>
-              <th class="w-[8%] px-4 py-3 text-right font-semibold">Action</th>
+              <th class="w-[10rem] px-4 py-3 text-right font-semibold">Action</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-[color:var(--border-soft)]">
@@ -901,7 +901,7 @@ onMounted(() => {
                     <Loader2 v-if="updatingStatusId === job.id" class="h-4 w-4 animate-spin" />
                     <MoreVertical v-else class="h-4 w-4" />
                   </button>
-                  <div v-if="actionMenuId === getActionMenuKey('freelance', job.id)" class="absolute right-0 top-10 z-50 w-40 overflow-hidden rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-1">
+                  <div v-if="actionMenuId === getActionMenuKey('freelance', job.id)" class="absolute right-12 top-0 z-50 w-40 overflow-hidden rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-1">
                     <button v-for="action in freelanceJobActions(job)" :key="action.status" type="button" class="flex w-full rounded-[0.65rem] px-3 py-2 text-left text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]" :class="action.tone === 'danger' ? 'text-red-600 hover:text-red-700 dark:text-red-300' : ''" @click="changeFreelanceJobStatus(job, action.status)">
                       {{ action.label }}
                     </button>
