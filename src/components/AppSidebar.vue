@@ -30,7 +30,7 @@ const emit = defineEmits<{
 const route = useRoute()
 const router = useRouter()
 const communitiesOpen = ref(route.path.startsWith('/admin/communit'))
-const jobsOpen = ref(route.path.startsWith('/admin/jobs') || route.path.startsWith('/admin/freelance-jobs'))
+const jobsOpen = ref(route.path.startsWith('/admin/jobs'))
 const pagesOpen = ref(route.path.startsWith('/admin/page'))
 
 const adminLinks = [
@@ -50,7 +50,6 @@ const communityLinks = [
 
 const jobLinks = [
   { label: 'Manage jobs', to: '/admin/jobs' },
-  { label: 'Freelance jobs', to: '/admin/freelance-jobs' },
 ]
 
 const pageLinks = [
