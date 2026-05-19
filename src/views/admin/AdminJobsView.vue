@@ -14,6 +14,7 @@ import {
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
+import { getApiUrl } from '../../composables/useApi'
 import {
   createJob,
   listFreelanceJobs,
@@ -178,6 +179,14 @@ function pushJobDebug(label: string, payload: Record<string, unknown> = {}) {
   console.warn(jobsDebugPrefix, label, payload)
 }
 
+function getStoredAdminUser() {
+  try {
+    return JSON.parse(localStorage.getItem('admin-user') || '{}') as { id?: string, email?: string, role?: string }
+  } catch {
+    return {}
+  }
+}
+
 function formatDate(value?: string | null) {
   if (!value) {
     return 'Not available'
@@ -272,6 +281,9 @@ async function fetchJobs() {
     pushJobDebug('fetch:start', {
       tab: activeFeedTab.value,
       status: status.value || 'all',
+      apiBase: getApiUrl('/api/jobs').replace(/\/api\/jobs.*/, ''),
+      adminUser: getStoredAdminUser(),
+      hasToken: !!localStorage.getItem('admin-token'),
       params,
     })
 
@@ -375,6 +387,45 @@ async function fetchRegularJobStatus(params: {
   }
 }
 
+async function fetchRegularJobsWithoutStatus(params: {
+  page: number
+  per_page: number
+  q: string
+  status: string
+  sort: string
+  location: string
+  type: string
+  skill: string
+}) {
+  const requestParams = {
+    ...params,
+    page: 1,
+    per_page: params.per_page,
+    status: '',
+    experience: experience.value,
+    workMode: workMode.value,
+  }
+  const [publicResponse, postedResponse] = await Promise.all([
+    listJobs(requestParams),
+    listMyPostedJobs(requestParams),
+  ])
+  const merged = paginateMergedJobs([...(publicResponse.data || []), ...(postedResponse.data || [])], params.page, params.per_page)
+
+  pushJobDebug('regular:no-status', {
+    publicRows: publicResponse.data?.length || 0,
+    publicTotal: publicResponse.total || 0,
+    postedRows: postedResponse.data?.length || 0,
+    postedTotal: postedResponse.total || 0,
+    mergedRows: merged.data.length,
+    mergedTotal: merged.total,
+  })
+
+  return {
+    ...publicResponse,
+    ...merged,
+  }
+}
+
 async function fetchFreelanceJobStatus(params: {
   page: number
   per_page: number
@@ -424,7 +475,10 @@ async function fetchAllRegularJobStatuses(params: {
   type: string
   skill: string
 }) {
-  const responses = await Promise.all(adminJobStatuses.map((jobStatus) => fetchRegularJobStatus(params, jobStatus)))
+  const responses = await Promise.all([
+    fetchRegularJobsWithoutStatus(params),
+    ...adminJobStatuses.map((jobStatus) => fetchRegularJobStatus(params, jobStatus)),
+  ])
   const data = responses.flatMap((response) => response.data || [])
   const merged = paginateMergedJobs(data, params.page, params.per_page)
 
