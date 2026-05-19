@@ -639,6 +639,7 @@ onMounted(() => {
           </button>
           <button
             v-if="activeFeedTab === 'regular'"
+            v-show="false"
             type="button"
             class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]"
             @click="showCreateForm = !showCreateForm"
@@ -652,7 +653,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section v-if="activeFeedTab === 'regular' && showCreateForm" class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
+    <section v-if="false && activeFeedTab === 'regular' && showCreateForm" class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
       <form class="mx-auto max-w-4xl" @submit.prevent="createNewJob">
         <div class="flex items-start gap-3">
           <span class="grid h-10 w-10 shrink-0 place-items-center rounded-[0.85rem] bg-[var(--accent-soft)] text-[var(--accent-strong)]">
@@ -758,7 +759,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="min-w-0 overflow-hidden rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)]">
+    <section class="min-w-0 rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)]">
       <div class="border-b border-[color:var(--border-soft)] p-4">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -813,7 +814,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-else-if="activeFeedTab === 'regular'" class="app-scroll hidden max-w-full overflow-x-auto md:block">
+      <div v-else-if="activeFeedTab === 'regular'" class="app-scroll hidden max-w-full overflow-x-auto overflow-y-visible md:block">
         <table class="w-full min-w-[62rem] table-fixed text-left text-sm">
           <thead class="border-b border-[color:var(--border-soft)] text-[0.72rem] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
             <tr>
@@ -853,7 +854,7 @@ onMounted(() => {
                     <Loader2 v-if="updatingStatusId === job.id" class="h-4 w-4 animate-spin" />
                     <MoreVertical v-else class="h-4 w-4" />
                   </button>
-                  <div v-if="actionMenuId === getActionMenuKey('regular', job.id)" class="absolute right-0 top-10 z-20 w-40 overflow-hidden rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-1">
+                  <div v-if="actionMenuId === getActionMenuKey('regular', job.id)" class="absolute right-0 top-10 z-50 w-40 overflow-hidden rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-1">
                     <button v-for="action in regularJobActions(job)" :key="action.status" type="button" class="flex w-full rounded-[0.65rem] px-3 py-2 text-left text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]" :class="action.tone === 'danger' ? 'text-red-600 hover:text-red-700 dark:text-red-300' : ''" @click="changeJobStatus(job, action.status)">
                       {{ action.label }}
                     </button>
@@ -865,7 +866,7 @@ onMounted(() => {
         </table>
       </div>
 
-      <div v-else class="app-scroll hidden max-w-full overflow-x-auto md:block">
+      <div v-else class="app-scroll hidden max-w-full overflow-x-auto overflow-y-visible md:block">
         <table class="w-full min-w-[62rem] table-fixed text-left text-sm">
           <thead class="border-b border-[color:var(--border-soft)] text-[0.72rem] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
             <tr>
@@ -900,7 +901,7 @@ onMounted(() => {
                     <Loader2 v-if="updatingStatusId === job.id" class="h-4 w-4 animate-spin" />
                     <MoreVertical v-else class="h-4 w-4" />
                   </button>
-                  <div v-if="actionMenuId === getActionMenuKey('freelance', job.id)" class="absolute right-0 top-10 z-20 w-40 overflow-hidden rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-1">
+                  <div v-if="actionMenuId === getActionMenuKey('freelance', job.id)" class="absolute right-0 top-10 z-50 w-40 overflow-hidden rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-1">
                     <button v-for="action in freelanceJobActions(job)" :key="action.status" type="button" class="flex w-full rounded-[0.65rem] px-3 py-2 text-left text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]" :class="action.tone === 'danger' ? 'text-red-600 hover:text-red-700 dark:text-red-300' : ''" @click="changeFreelanceJobStatus(job, action.status)">
                       {{ action.label }}
                     </button>
