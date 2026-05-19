@@ -87,9 +87,9 @@ const router = createRouter({
       name: 'Manage jobs',
       component: AdminJobsView,
       props: {
-        defaultStatus: 'approved',
-        pageTitle: 'Manage Active Jobs',
-        pageDescription: 'Manage approved, active, and legacy live jobs with regular and freelance job tables.',
+        defaultStatus: '',
+        pageTitle: 'Manage Jobs',
+        pageDescription: 'Manage pending, approved, active, and legacy live jobs with regular and freelance job tables.',
       },
       meta: { layout: 'app', requiresAuth: true },
     },
