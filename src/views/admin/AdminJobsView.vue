@@ -6,6 +6,7 @@ import {
   Eye,
   Loader2,
   MapPin,
+  MoreVertical,
   Plus,
   RefreshCw,
   Search,
@@ -14,7 +15,6 @@ import {
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
-import { getApiUrl } from '../../composables/useApi'
 import {
   createJob,
   listFreelanceJobs,
@@ -59,7 +59,6 @@ const statusOptions: Array<{ label: string; value: JobStatus | '' }> = [
 
 const adminJobStatuses: JobStatus[] = ['pending_review', 'approved', 'active', 'live', 'draft', 'closed', 'archived', 'suspended', 'deleted']
 const adminFreelanceJobStatuses: FreelanceJobStatus[] = ['pending_review', 'approved', 'active', 'live', 'closed', 'archived', 'suspended', 'deleted']
-const jobsDebugPrefix = '[AdminJobs]'
 
 const typeOptions: Array<{ label: string; value: JobType | '' }> = [
   { label: 'All types', value: '' },
@@ -118,7 +117,7 @@ const showCreateForm = ref(false)
 const viewingJob = ref<Job | null>(null)
 const viewingFreelanceJob = ref<FreelanceJob | null>(null)
 const updatingStatusId = ref<string | null>(null)
-const debugEvents = ref<string[]>(['Jobs diagnostics ready'])
+const actionMenuId = ref<string | null>(null)
 
 const feedTabs: Array<{ label: string; value: JobFeedTab }> = [
   { label: 'Regular Jobs', value: 'regular' },
@@ -172,20 +171,6 @@ const visibleRows = computed(() => activeFeedTab.value === 'regular' ? jobs.valu
 const currentTableTitle = computed(() => activeFeedTab.value === 'regular' ? 'Regular Jobs Table' : 'Freelance Jobs Table')
 const isFreelanceFeed = computed(() => activeFeedTab.value === 'freelance')
 const currentTypeOptions = computed(() => isFreelanceFeed.value ? freelanceTypeOptions : typeOptions)
-
-function pushJobDebug(label: string, payload: Record<string, unknown> = {}) {
-  const message = `${new Date().toLocaleTimeString()} ${label} ${JSON.stringify(payload)}`
-  debugEvents.value = [message, ...debugEvents.value].slice(0, 12)
-  console.warn(jobsDebugPrefix, label, payload)
-}
-
-function getStoredAdminUser() {
-  try {
-    return JSON.parse(localStorage.getItem('admin-user') || '{}') as { id?: string, email?: string, role?: string }
-  } catch {
-    return {}
-  }
-}
 
 function formatDate(value?: string | null) {
   if (!value) {
@@ -278,15 +263,6 @@ async function fetchJobs() {
       skill: skill.value,
     }
 
-    pushJobDebug('fetch:start', {
-      tab: activeFeedTab.value,
-      status: status.value || 'all',
-      apiBase: getApiUrl('/api/jobs').replace(/\/api\/jobs.*/, ''),
-      adminUser: getStoredAdminUser(),
-      hasToken: !!localStorage.getItem('admin-token'),
-      params,
-    })
-
     const response = activeFeedTab.value === 'regular'
       ? status.value
         ? await fetchRegularJobStatus(params, status.value)
@@ -308,23 +284,10 @@ async function fetchJobs() {
     from.value = response.from
     to.value = response.to
 
-    pushJobDebug('fetch:success', {
-      tab: activeFeedTab.value,
-      status: status.value || 'all',
-      rows: response.data?.length || 0,
-      total: response.total || 0,
-      currentPage: response.current_page,
-      lastPage: response.last_page,
-    })
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Unable to load jobs'
     jobs.value = []
     freelanceJobs.value = []
-    pushJobDebug('fetch:error', {
-      tab: activeFeedTab.value,
-      status: status.value || 'all',
-      error: err instanceof Error ? err.message : String(err),
-    })
   } finally {
     loading.value = false
   }
@@ -371,16 +334,6 @@ async function fetchRegularJobStatus(params: {
   ])
   const merged = paginateMergedJobs([...(publicResponse.data || []), ...(postedResponse.data || [])], params.page, params.per_page)
 
-  pushJobDebug('regular:status', {
-    status: jobStatus,
-    publicRows: publicResponse.data?.length || 0,
-    publicTotal: publicResponse.total || 0,
-    postedRows: postedResponse.data?.length || 0,
-    postedTotal: postedResponse.total || 0,
-    mergedRows: merged.data.length,
-    mergedTotal: merged.total,
-  })
-
   return {
     ...publicResponse,
     ...merged,
@@ -411,15 +364,6 @@ async function fetchRegularJobsWithoutStatus(params: {
   ])
   const merged = paginateMergedJobs([...(publicResponse.data || []), ...(postedResponse.data || [])], params.page, params.per_page)
 
-  pushJobDebug('regular:no-status', {
-    publicRows: publicResponse.data?.length || 0,
-    publicTotal: publicResponse.total || 0,
-    postedRows: postedResponse.data?.length || 0,
-    postedTotal: postedResponse.total || 0,
-    mergedRows: merged.data.length,
-    mergedTotal: merged.total,
-  })
-
   return {
     ...publicResponse,
     ...merged,
@@ -449,16 +393,6 @@ async function fetchFreelanceJobStatus(params: {
   ])
   const merged = paginateMergedJobs([...(publicResponse.data || []), ...(postedResponse.data || [])], params.page, params.per_page)
 
-  pushJobDebug('freelance:status', {
-    status: jobStatus,
-    publicRows: publicResponse.data?.length || 0,
-    publicTotal: publicResponse.total || 0,
-    postedRows: postedResponse.data?.length || 0,
-    postedTotal: postedResponse.total || 0,
-    mergedRows: merged.data.length,
-    mergedTotal: merged.total,
-  })
-
   return {
     ...publicResponse,
     ...merged,
@@ -482,13 +416,6 @@ async function fetchAllRegularJobStatuses(params: {
   const data = responses.flatMap((response) => response.data || [])
   const merged = paginateMergedJobs(data, params.page, params.per_page)
 
-  pushJobDebug('regular:all-statuses', {
-    statuses: adminJobStatuses,
-    collectedRows: data.length,
-    mergedRows: merged.data.length,
-    mergedTotal: merged.total,
-  })
-
   return {
     ...responses[0],
     ...merged,
@@ -508,13 +435,6 @@ async function fetchAllFreelanceJobStatuses(params: {
   const responses = await Promise.all(adminFreelanceJobStatuses.map((jobStatus) => fetchFreelanceJobStatus(params, jobStatus)))
   const data = responses.flatMap((response) => response.data || [])
   const merged = paginateMergedJobs(data, params.page, params.per_page)
-
-  pushJobDebug('freelance:all-statuses', {
-    statuses: adminFreelanceJobStatuses,
-    collectedRows: data.length,
-    mergedRows: merged.data.length,
-    mergedTotal: merged.total,
-  })
 
   return {
     ...responses[0],
@@ -557,6 +477,7 @@ function goToPage(nextPage: number) {
 
 async function changeJobStatus(job: Job, nextStatus: JobStatus) {
   updatingStatusId.value = job.id
+  actionMenuId.value = null
 
   try {
     const response = await updateJobStatus(job.id, nextStatus)
@@ -572,6 +493,7 @@ async function changeJobStatus(job: Job, nextStatus: JobStatus) {
 
 async function changeFreelanceJobStatus(job: FreelanceJob, nextStatus: FreelanceJobStatus) {
   updatingStatusId.value = job.id
+  actionMenuId.value = null
 
   try {
     const response = await updateFreelanceJobStatus(job.id, nextStatus)
@@ -583,6 +505,36 @@ async function changeFreelanceJobStatus(job: FreelanceJob, nextStatus: Freelance
   } finally {
     updatingStatusId.value = null
   }
+}
+
+function toggleActionMenu(id: string) {
+  actionMenuId.value = actionMenuId.value === id ? null : id
+}
+
+function getActionMenuKey(kind: JobFeedTab, id: string) {
+  return `${kind}:${id}`
+}
+
+function regularJobActions(job: Job): Array<{ label: string, status: JobStatus, tone?: 'danger' }> {
+  const actions: Array<{ label: string, status: JobStatus, tone?: 'danger' }> = [
+    { label: 'APPROVE', status: 'approved' },
+    { label: 'SUSPEND', status: 'suspended' },
+    { label: 'UNSUSPEND', status: 'active' },
+    { label: 'DELETE', status: 'deleted', tone: 'danger' },
+  ]
+
+  return actions.filter((action) => action.status !== job.status)
+}
+
+function freelanceJobActions(job: FreelanceJob): Array<{ label: string, status: FreelanceJobStatus, tone?: 'danger' }> {
+  const actions: Array<{ label: string, status: FreelanceJobStatus, tone?: 'danger' }> = [
+    { label: 'APPROVE', status: 'approved' },
+    { label: 'SUSPEND', status: 'suspended' },
+    { label: 'UNSUSPEND', status: 'active' },
+    { label: 'DELETE', status: 'deleted', tone: 'danger' },
+  ]
+
+  return actions.filter((action) => action.status !== job.status)
 }
 
 function resetCreateForm() {
@@ -845,16 +797,6 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="border-b border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
-        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <p class="font-semibold">Jobs diagnostics</p>
-          <p>{{ activeFeedTab }} / {{ status || 'all statuses' }} / {{ visibleRows.length }} visible / {{ total }} total</p>
-        </div>
-        <div class="mt-2 max-h-28 space-y-1 overflow-y-auto font-mono">
-          <p v-for="event in debugEvents" :key="event" class="break-words">{{ event }}</p>
-        </div>
-      </div>
-
       <div v-if="loading" class="flex min-h-64 items-center justify-center gap-2 text-sm font-medium text-[var(--text-secondary)]">
         <Loader2 class="h-4 w-4 animate-spin" />
         Loading jobs
@@ -903,13 +845,19 @@ onMounted(() => {
                 <StatusChip :tone="statusTone(job.status)">{{ formatLabel(job.status) }}</StatusChip>
               </td>
               <td class="px-4 py-3">
-                <div class="flex justify-end gap-2">
+                <div class="relative flex justify-end gap-2">
                   <button type="button" class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-[color:var(--border-soft)] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]" :title="`View ${job.title}`" @click="viewingJob = job">
                     <Eye class="h-4 w-4" />
                   </button>
-                  <select class="h-9 rounded-[0.75rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-2 text-xs capitalize outline-none focus:border-[var(--accent)] disabled:opacity-60" :disabled="updatingStatusId === job.id" :value="job.status" @change="changeJobStatus(job, ($event.target as HTMLSelectElement).value as JobStatus)">
-                    <option v-for="option in statusOptions.filter((item) => item.value)" :key="option.value" :value="option.value">{{ option.label }}</option>
-                  </select>
+                  <button type="button" class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-[color:var(--border-soft)] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)] disabled:opacity-60" :disabled="updatingStatusId === job.id" :aria-label="`Open actions for ${job.title}`" @click="toggleActionMenu(getActionMenuKey('regular', job.id))">
+                    <Loader2 v-if="updatingStatusId === job.id" class="h-4 w-4 animate-spin" />
+                    <MoreVertical v-else class="h-4 w-4" />
+                  </button>
+                  <div v-if="actionMenuId === getActionMenuKey('regular', job.id)" class="absolute right-0 top-10 z-20 w-40 overflow-hidden rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-1">
+                    <button v-for="action in regularJobActions(job)" :key="action.status" type="button" class="flex w-full rounded-[0.65rem] px-3 py-2 text-left text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]" :class="action.tone === 'danger' ? 'text-red-600 hover:text-red-700 dark:text-red-300' : ''" @click="changeJobStatus(job, action.status)">
+                      {{ action.label }}
+                    </button>
+                  </div>
                 </div>
               </td>
             </tr>
@@ -944,13 +892,19 @@ onMounted(() => {
               <td class="truncate px-4 py-3 text-[var(--text-secondary)]">{{ formatDate(job.applicationEndDate) }}</td>
               <td class="px-4 py-3"><StatusChip :tone="statusTone(job.status)">{{ formatLabel(job.status) }}</StatusChip></td>
               <td class="px-4 py-3">
-                <div class="flex justify-end gap-2">
+                <div class="relative flex justify-end gap-2">
                   <button type="button" class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-[color:var(--border-soft)] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]" :title="`View ${job.title}`" @click="viewingFreelanceJob = job">
                     <Eye class="h-4 w-4" />
                   </button>
-                  <select class="h-9 rounded-[0.75rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-2 text-xs capitalize outline-none focus:border-[var(--accent)] disabled:opacity-60" :disabled="updatingStatusId === job.id" :value="job.status" @change="changeFreelanceJobStatus(job, ($event.target as HTMLSelectElement).value as FreelanceJobStatus)">
-                    <option v-for="option in statusOptions.filter((item) => item.value && item.value !== 'draft')" :key="option.value" :value="option.value">{{ option.label }}</option>
-                  </select>
+                  <button type="button" class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-[color:var(--border-soft)] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)] disabled:opacity-60" :disabled="updatingStatusId === job.id" :aria-label="`Open actions for ${job.title}`" @click="toggleActionMenu(getActionMenuKey('freelance', job.id))">
+                    <Loader2 v-if="updatingStatusId === job.id" class="h-4 w-4 animate-spin" />
+                    <MoreVertical v-else class="h-4 w-4" />
+                  </button>
+                  <div v-if="actionMenuId === getActionMenuKey('freelance', job.id)" class="absolute right-0 top-10 z-20 w-40 overflow-hidden rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-1">
+                    <button v-for="action in freelanceJobActions(job)" :key="action.status" type="button" class="flex w-full rounded-[0.65rem] px-3 py-2 text-left text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]" :class="action.tone === 'danger' ? 'text-red-600 hover:text-red-700 dark:text-red-300' : ''" @click="changeFreelanceJobStatus(job, action.status)">
+                      {{ action.label }}
+                    </button>
+                  </div>
                 </div>
               </td>
             </tr>
@@ -1030,9 +984,9 @@ onMounted(() => {
           <StatusChip :tone="statusTone(viewingJob.status)">{{ formatLabel(viewingJob.status) }}</StatusChip>
           <StatusChip tone="accent">{{ formatLabel(viewingJob.type) }}</StatusChip>
           <StatusChip tone="muted">{{ formatLabel(viewingJob.workMode) }}</StatusChip>
-          <select class="h-9 rounded-[0.75rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-2 text-xs capitalize outline-none focus:border-[var(--accent)] disabled:opacity-60" :disabled="updatingStatusId === viewingJob.id" :value="viewingJob.status" @change="changeJobStatus(viewingJob, ($event.target as HTMLSelectElement).value as JobStatus)">
-            <option v-for="option in statusOptions.filter((item) => item.value)" :key="option.value" :value="option.value">{{ option.label }}</option>
-          </select>
+          <button v-for="action in regularJobActions(viewingJob)" :key="action.status" type="button" class="h-9 rounded-[0.75rem] border border-[color:var(--border-soft)] px-3 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)] disabled:opacity-60" :class="action.tone === 'danger' ? 'text-red-600 hover:text-red-700 dark:text-red-300' : ''" :disabled="updatingStatusId === viewingJob.id" @click="changeJobStatus(viewingJob, action.status)">
+            {{ action.label }}
+          </button>
         </div>
 
         <div class="mt-5 grid gap-3 sm:grid-cols-2">
@@ -1098,9 +1052,9 @@ onMounted(() => {
           <StatusChip :tone="statusTone(viewingFreelanceJob.status)">{{ formatLabel(viewingFreelanceJob.status) }}</StatusChip>
           <StatusChip tone="accent">{{ formatLabel(viewingFreelanceJob.type) }}</StatusChip>
           <StatusChip :tone="viewingFreelanceJob.verified ? 'success' : 'muted'">{{ viewingFreelanceJob.verified ? 'Verified' : 'Unverified' }}</StatusChip>
-          <select class="h-9 rounded-[0.75rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-2 text-xs capitalize outline-none focus:border-[var(--accent)] disabled:opacity-60" :disabled="updatingStatusId === viewingFreelanceJob.id" :value="viewingFreelanceJob.status" @change="changeFreelanceJobStatus(viewingFreelanceJob, ($event.target as HTMLSelectElement).value as FreelanceJobStatus)">
-            <option v-for="option in statusOptions.filter((item) => item.value && item.value !== 'draft')" :key="option.value" :value="option.value">{{ option.label }}</option>
-          </select>
+          <button v-for="action in freelanceJobActions(viewingFreelanceJob)" :key="action.status" type="button" class="h-9 rounded-[0.75rem] border border-[color:var(--border-soft)] px-3 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)] disabled:opacity-60" :class="action.tone === 'danger' ? 'text-red-600 hover:text-red-700 dark:text-red-300' : ''" :disabled="updatingStatusId === viewingFreelanceJob.id" @click="changeFreelanceJobStatus(viewingFreelanceJob, action.status)">
+            {{ action.label }}
+          </button>
         </div>
 
         <div class="mt-5 grid gap-3 sm:grid-cols-2">
