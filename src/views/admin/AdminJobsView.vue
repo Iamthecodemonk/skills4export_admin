@@ -54,6 +54,9 @@ const statusOptions: Array<{ label: string; value: JobStatus | '' }> = [
   { label: 'Deleted', value: 'deleted' },
 ]
 
+const adminJobStatuses: JobStatus[] = ['pending_review', 'approved', 'active', 'live', 'draft', 'closed', 'archived', 'suspended', 'deleted']
+const adminFreelanceJobStatuses: FreelanceJobStatus[] = ['pending_review', 'approved', 'active', 'live', 'closed', 'archived', 'suspended', 'deleted']
+
 const typeOptions: Array<{ label: string; value: JobType | '' }> = [
   { label: 'All types', value: '' },
   { label: 'Full-time', value: 'full-time' },
@@ -257,15 +260,19 @@ async function fetchJobs() {
     }
 
     const response = activeFeedTab.value === 'regular'
-      ? await listJobs({
-        ...params,
-        experience: experience.value,
-        workMode: workMode.value,
-      })
-      : await listFreelanceJobs({
-        ...params,
-        type: type.value as FreelanceJobType | '',
-      })
+      ? status.value
+        ? await listJobs({
+          ...params,
+          experience: experience.value,
+          workMode: workMode.value,
+        })
+        : await fetchAllRegularJobStatuses(params)
+      : status.value
+        ? await listFreelanceJobs({
+          ...params,
+          type: type.value as FreelanceJobType | '',
+        })
+        : await fetchAllFreelanceJobStatuses(params)
 
     if (activeFeedTab.value === 'regular') {
       jobs.value = response.data as Job[] || []
@@ -285,6 +292,77 @@ async function fetchJobs() {
     freelanceJobs.value = []
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchAllRegularJobStatuses(params: {
+  page: number
+  per_page: number
+  q: string
+  status: string
+  sort: string
+  location: string
+  type: string
+  skill: string
+}) {
+  const responses = await Promise.all(adminJobStatuses.map((jobStatus) => listJobs({
+    ...params,
+    page: 1,
+    per_page: params.per_page,
+    status: jobStatus,
+    experience: experience.value,
+    workMode: workMode.value,
+  })))
+  const data = responses.flatMap((response) => response.data || [])
+  const uniqueJobs = Array.from(new Map(data.map((job) => [job.id, job])).values())
+  const sortedJobs = uniqueJobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const start = (params.page - 1) * params.per_page
+  const pagedJobs = sortedJobs.slice(start, start + params.per_page)
+
+  return {
+    ...responses[0],
+    data: pagedJobs,
+    current_page: params.page,
+    from: sortedJobs.length ? start + 1 : null,
+    last_page: Math.max(Math.ceil(sortedJobs.length / params.per_page), 1),
+    per_page: params.per_page,
+    to: sortedJobs.length ? start + pagedJobs.length : null,
+    total: sortedJobs.length,
+  }
+}
+
+async function fetchAllFreelanceJobStatuses(params: {
+  page: number
+  per_page: number
+  q: string
+  status: string
+  sort: string
+  location: string
+  type: string
+  skill: string
+}) {
+  const responses = await Promise.all(adminFreelanceJobStatuses.map((jobStatus) => listFreelanceJobs({
+    ...params,
+    page: 1,
+    per_page: params.per_page,
+    status: jobStatus,
+    type: type.value as FreelanceJobType | '',
+  })))
+  const data = responses.flatMap((response) => response.data || [])
+  const uniqueJobs = Array.from(new Map(data.map((job) => [job.id, job])).values())
+  const sortedJobs = uniqueJobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const start = (params.page - 1) * params.per_page
+  const pagedJobs = sortedJobs.slice(start, start + params.per_page)
+
+  return {
+    ...responses[0],
+    data: pagedJobs,
+    current_page: params.page,
+    from: sortedJobs.length ? start + 1 : null,
+    last_page: Math.max(Math.ceil(sortedJobs.length / params.per_page), 1),
+    per_page: params.per_page,
+    to: sortedJobs.length ? start + pagedJobs.length : null,
+    total: sortedJobs.length,
   }
 }
 
