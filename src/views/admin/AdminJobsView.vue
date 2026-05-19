@@ -117,6 +117,7 @@ const showCreateForm = ref(false)
 const viewingJob = ref<Job | null>(null)
 const viewingFreelanceJob = ref<FreelanceJob | null>(null)
 const updatingStatusId = ref<string | null>(null)
+const debugEvents = ref<string[]>(['Jobs diagnostics ready'])
 
 const feedTabs: Array<{ label: string; value: JobFeedTab }> = [
   { label: 'Regular Jobs', value: 'regular' },
@@ -170,6 +171,12 @@ const visibleRows = computed(() => activeFeedTab.value === 'regular' ? jobs.valu
 const currentTableTitle = computed(() => activeFeedTab.value === 'regular' ? 'Regular Jobs Table' : 'Freelance Jobs Table')
 const isFreelanceFeed = computed(() => activeFeedTab.value === 'freelance')
 const currentTypeOptions = computed(() => isFreelanceFeed.value ? freelanceTypeOptions : typeOptions)
+
+function pushJobDebug(label: string, payload: Record<string, unknown> = {}) {
+  const message = `${new Date().toLocaleTimeString()} ${label} ${JSON.stringify(payload)}`
+  debugEvents.value = [message, ...debugEvents.value].slice(0, 12)
+  console.warn(jobsDebugPrefix, label, payload)
+}
 
 function formatDate(value?: string | null) {
   if (!value) {
@@ -262,7 +269,7 @@ async function fetchJobs() {
       skill: skill.value,
     }
 
-    console.info(jobsDebugPrefix, 'fetch:start', {
+    pushJobDebug('fetch:start', {
       tab: activeFeedTab.value,
       status: status.value || 'all',
       params,
@@ -289,7 +296,7 @@ async function fetchJobs() {
     from.value = response.from
     to.value = response.to
 
-    console.info(jobsDebugPrefix, 'fetch:success', {
+    pushJobDebug('fetch:success', {
       tab: activeFeedTab.value,
       status: status.value || 'all',
       rows: response.data?.length || 0,
@@ -301,10 +308,10 @@ async function fetchJobs() {
     error.value = err instanceof Error ? err.message : 'Unable to load jobs'
     jobs.value = []
     freelanceJobs.value = []
-    console.error(jobsDebugPrefix, 'fetch:error', {
+    pushJobDebug('fetch:error', {
       tab: activeFeedTab.value,
       status: status.value || 'all',
-      error: err,
+      error: err instanceof Error ? err.message : String(err),
     })
   } finally {
     loading.value = false
@@ -352,7 +359,7 @@ async function fetchRegularJobStatus(params: {
   ])
   const merged = paginateMergedJobs([...(publicResponse.data || []), ...(postedResponse.data || [])], params.page, params.per_page)
 
-  console.info(jobsDebugPrefix, 'regular:status', {
+  pushJobDebug('regular:status', {
     status: jobStatus,
     publicRows: publicResponse.data?.length || 0,
     publicTotal: publicResponse.total || 0,
@@ -391,7 +398,7 @@ async function fetchFreelanceJobStatus(params: {
   ])
   const merged = paginateMergedJobs([...(publicResponse.data || []), ...(postedResponse.data || [])], params.page, params.per_page)
 
-  console.info(jobsDebugPrefix, 'freelance:status', {
+  pushJobDebug('freelance:status', {
     status: jobStatus,
     publicRows: publicResponse.data?.length || 0,
     publicTotal: publicResponse.total || 0,
@@ -421,7 +428,7 @@ async function fetchAllRegularJobStatuses(params: {
   const data = responses.flatMap((response) => response.data || [])
   const merged = paginateMergedJobs(data, params.page, params.per_page)
 
-  console.info(jobsDebugPrefix, 'regular:all-statuses', {
+  pushJobDebug('regular:all-statuses', {
     statuses: adminJobStatuses,
     collectedRows: data.length,
     mergedRows: merged.data.length,
@@ -448,7 +455,7 @@ async function fetchAllFreelanceJobStatuses(params: {
   const data = responses.flatMap((response) => response.data || [])
   const merged = paginateMergedJobs(data, params.page, params.per_page)
 
-  console.info(jobsDebugPrefix, 'freelance:all-statuses', {
+  pushJobDebug('freelance:all-statuses', {
     statuses: adminFreelanceJobStatuses,
     collectedRows: data.length,
     mergedRows: merged.data.length,
@@ -781,6 +788,16 @@ onMounted(() => {
             <button type="button" class="h-10 rounded-[0.85rem] bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]" @click="applyFilters">Apply</button>
             <button type="button" class="h-10 rounded-[0.85rem] border border-[color:var(--border-soft)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)]" @click="resetFilters">Reset</button>
           </div>
+        </div>
+      </div>
+
+      <div class="border-b border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <p class="font-semibold">Jobs diagnostics</p>
+          <p>{{ activeFeedTab }} / {{ status || 'all statuses' }} / {{ visibleRows.length }} visible / {{ total }} total</p>
+        </div>
+        <div class="mt-2 max-h-28 space-y-1 overflow-y-auto font-mono">
+          <p v-for="event in debugEvents" :key="event" class="break-words">{{ event }}</p>
         </div>
       </div>
 
