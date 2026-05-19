@@ -14,7 +14,22 @@ import {
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
-import { createJob, listJobs, updateJobStatus, type Job, type JobStatus, type JobType, type WorkMode } from '../../services'
+import {
+  createJob,
+  listFreelanceJobs,
+  listJobs,
+  updateFreelanceJobStatus,
+  updateJobStatus,
+  type FreelanceJob,
+  type FreelanceJobStatus,
+  type FreelanceJobType,
+  type Job,
+  type JobStatus,
+  type JobType,
+  type WorkMode,
+} from '../../services'
+
+type JobFeedTab = 'regular' | 'freelance'
 
 const props = withDefaults(defineProps<{
   defaultStatus?: JobStatus | ''
@@ -48,6 +63,15 @@ const typeOptions: Array<{ label: string; value: JobType | '' }> = [
   { label: 'Remote', value: 'remote' },
 ]
 
+const freelanceTypeOptions: Array<{ label: string; value: FreelanceJobType | '' }> = [
+  { label: 'All types', value: '' },
+  { label: 'Contract', value: 'contract' },
+  { label: 'Part-time', value: 'part-time' },
+  { label: 'Project-based', value: 'project-based' },
+  { label: 'Remote', value: 'remote' },
+  { label: 'Hybrid', value: 'hybrid' },
+]
+
 const workModeOptions: Array<{ label: string; value: WorkMode | '' }> = [
   { label: 'All work modes', value: '' },
   { label: 'Remote', value: 'remote' },
@@ -63,11 +87,13 @@ const sortOptions = [
 ]
 
 const jobs = ref<Job[]>([])
+const freelanceJobs = ref<FreelanceJob[]>([])
+const activeFeedTab = ref<JobFeedTab>('regular')
 const query = ref('')
 const status = ref<JobStatus | ''>(props.defaultStatus)
 const sort = ref('')
 const location = ref('')
-const type = ref<JobType | ''>('')
+const type = ref<JobType | FreelanceJobType | ''>('')
 const skill = ref('')
 const experience = ref('')
 const workMode = ref<WorkMode | ''>('')
@@ -83,7 +109,13 @@ const error = ref<string | null>(null)
 const formError = ref<string | null>(null)
 const showCreateForm = ref(false)
 const viewingJob = ref<Job | null>(null)
+const viewingFreelanceJob = ref<FreelanceJob | null>(null)
 const updatingStatusId = ref<string | null>(null)
+
+const feedTabs: Array<{ label: string; value: JobFeedTab }> = [
+  { label: 'Regular Jobs', value: 'regular' },
+  { label: 'Freelance Jobs', value: 'freelance' },
+]
 
 const title = ref('')
 const companyName = ref('')
@@ -128,6 +160,11 @@ const jobStats = computed(() => [
   },
 ])
 
+const visibleRows = computed(() => activeFeedTab.value === 'regular' ? jobs.value : freelanceJobs.value)
+const currentTableTitle = computed(() => activeFeedTab.value === 'regular' ? 'Regular Jobs Table' : 'Freelance Jobs Table')
+const isFreelanceFeed = computed(() => activeFeedTab.value === 'freelance')
+const currentTypeOptions = computed(() => isFreelanceFeed.value ? freelanceTypeOptions : typeOptions)
+
 function formatDate(value?: string | null) {
   if (!value) {
     return 'Not available'
@@ -148,7 +185,7 @@ function formatLabel(value?: string | null) {
   return value.replace(/-/g, ' ').replace(/_/g, ' ')
 }
 
-function statusTone(value: JobStatus) {
+function statusTone(value: string) {
   if (value === 'live' || value === 'approved' || value === 'active') return 'success'
   if (value === 'pending_review') return 'warning'
   if (value === 'closed' || value === 'archived' || value === 'deleted' || value === 'suspended') return 'danger'
@@ -167,6 +204,22 @@ function formatSalary(job: Job) {
   const currency = job.salaryCurrency || ''
   const minimum = job.salaryMin !== null ? `${currency} ${job.salaryMin.toLocaleString()}` : null
   const maximum = job.salaryMax !== null ? `${currency} ${job.salaryMax.toLocaleString()}` : null
+
+  return [minimum, maximum].filter(Boolean).join(' - ')
+}
+
+function formatFee(job: FreelanceJob) {
+  if (job.feeLabel) {
+    return job.feeLabel
+  }
+
+  if (job.minFee === null && job.maxFee === null) {
+    return 'Not listed'
+  }
+
+  const currency = job.currency || ''
+  const minimum = job.minFee !== null ? `${currency} ${job.minFee.toLocaleString()}` : null
+  const maximum = job.maxFee !== null ? `${currency} ${job.maxFee.toLocaleString()}` : null
 
   return [minimum, maximum].filter(Boolean).join(' - ')
 }
@@ -192,7 +245,7 @@ async function fetchJobs() {
   error.value = null
 
   try {
-    const response = await listJobs({
+    const params = {
       page: page.value,
       per_page: perPage.value,
       q: query.value,
@@ -201,11 +254,26 @@ async function fetchJobs() {
       location: location.value,
       type: type.value,
       skill: skill.value,
-      experience: experience.value,
-      workMode: workMode.value,
-    })
+    }
 
-    jobs.value = response.data || []
+    const response = activeFeedTab.value === 'regular'
+      ? await listJobs({
+        ...params,
+        experience: experience.value,
+        workMode: workMode.value,
+      })
+      : await listFreelanceJobs({
+        ...params,
+        type: type.value as FreelanceJobType | '',
+      })
+
+    if (activeFeedTab.value === 'regular') {
+      jobs.value = response.data as Job[] || []
+      freelanceJobs.value = []
+    } else {
+      freelanceJobs.value = response.data as FreelanceJob[] || []
+      jobs.value = []
+    }
     total.value = response.total || 0
     lastPage.value = response.last_page || 1
     perPage.value = response.per_page || perPage.value
@@ -214,9 +282,21 @@ async function fetchJobs() {
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Unable to load jobs'
     jobs.value = []
+    freelanceJobs.value = []
   } finally {
     loading.value = false
   }
+}
+
+function switchFeedTab(tab: JobFeedTab) {
+  activeFeedTab.value = tab
+  page.value = 1
+  type.value = ''
+  workMode.value = ''
+  experience.value = ''
+  viewingJob.value = null
+  viewingFreelanceJob.value = null
+  fetchJobs()
 }
 
 function applyFilters() {
@@ -251,6 +331,21 @@ async function changeJobStatus(job: Job, nextStatus: JobStatus) {
     toast.success(`Job moved to ${formatLabel(nextStatus)}`)
   } catch (err) {
     toast.error(err instanceof Error ? err.message : 'Unable to update job status')
+  } finally {
+    updatingStatusId.value = null
+  }
+}
+
+async function changeFreelanceJobStatus(job: FreelanceJob, nextStatus: FreelanceJobStatus) {
+  updatingStatusId.value = job.id
+
+  try {
+    const response = await updateFreelanceJobStatus(job.id, nextStatus)
+    freelanceJobs.value = freelanceJobs.value.map((item) => item.id === response.data.id ? response.data : item)
+    if (viewingFreelanceJob.value?.id === job.id) viewingFreelanceJob.value = response.data
+    toast.success(`Freelance job moved to ${formatLabel(nextStatus)}`)
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Unable to update freelance job status')
   } finally {
     updatingStatusId.value = null
   }
@@ -324,7 +419,7 @@ onMounted(() => {
 <template>
   <div class="space-y-4">
     <section class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
-      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">Jobs</p>
           <h1 class="mt-2 font-display text-xl font-semibold text-[var(--text-primary)]">{{ pageTitle }}</h1>
@@ -333,9 +428,21 @@ onMounted(() => {
           </p>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-col gap-3 sm:items-end">
+          <div class="inline-flex rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-1">
+            <button
+              v-for="tab in feedTabs"
+              :key="tab.value"
+              type="button"
+              class="h-9 rounded-[0.7rem] px-3 text-sm font-semibold text-[var(--text-secondary)] transition hover:text-[var(--accent-strong)]"
+              :class="activeFeedTab === tab.value ? 'bg-[var(--accent)] text-white hover:text-white' : ''"
+              @click="switchFeedTab(tab.value)"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
+          <div class="flex flex-wrap items-center justify-end gap-2">
           <button
-            v-if="false"
             type="button"
             class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] border border-[color:var(--border-soft)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="loading"
@@ -345,6 +452,7 @@ onMounted(() => {
             Refresh
           </button>
           <button
+            v-if="activeFeedTab === 'regular'"
             type="button"
             class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]"
             @click="showCreateForm = !showCreateForm"
@@ -353,11 +461,12 @@ onMounted(() => {
             <Plus v-else class="h-4 w-4" />
             {{ showCreateForm ? 'Close form' : 'New job' }}
           </button>
+          </div>
         </div>
       </div>
     </section>
 
-    <section v-if="showCreateForm" class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
+    <section v-if="activeFeedTab === 'regular' && showCreateForm" class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
       <form class="mx-auto max-w-4xl" @submit.prevent="createNewJob">
         <div class="flex items-start gap-3">
           <span class="grid h-10 w-10 shrink-0 place-items-center rounded-[0.85rem] bg-[var(--accent-soft)] text-[var(--accent-strong)]">
@@ -467,22 +576,22 @@ onMounted(() => {
       <div class="border-b border-[color:var(--border-soft)] p-4">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 class="font-display text-base font-semibold text-[var(--text-primary)]">Jobs feed</h2>
+            <h2 class="font-display text-base font-semibold text-[var(--text-primary)]">{{ currentTableTitle }}</h2>
             <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ from || 0 }}-{{ to || 0 }} of {{ total }} jobs</p>
           </div>
 
           <div class="grid min-w-0 gap-2 sm:grid-cols-2">
             <label class="flex h-10 items-center gap-2 rounded-[0.85rem] bg-[var(--search-bg)] px-3 text-[var(--text-tertiary)]">
               <Search class="h-4 w-4" />
-              <input v-model="query" class="min-w-0 flex-1 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]" placeholder="Search jobs" type="search" @keyup.enter="applyFilters" />
+              <input v-model="query" class="min-w-0 flex-1 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]" placeholder="End date, return email, location, post name" type="search" @keyup.enter="applyFilters" />
             </label>
             <select v-model="status" class="h-10 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" @change="applyFilters">
               <option v-for="option in statusOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
             </select>
             <select v-model="type" class="h-10 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" @change="applyFilters">
-              <option v-for="option in typeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+              <option v-for="option in currentTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
             </select>
-            <select v-model="workMode" class="h-10 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" @change="applyFilters">
+            <select v-if="!isFreelanceFeed" v-model="workMode" class="h-10 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" @change="applyFilters">
               <option v-for="option in workModeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
             </select>
             <select v-model="sort" class="h-10 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" @change="applyFilters">
@@ -495,7 +604,7 @@ onMounted(() => {
           <input v-model="location" class="h-10 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" placeholder="Filter by location" @keyup.enter="applyFilters" />
           <input v-model="skill" class="h-10 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" placeholder="Filter by skill" @keyup.enter="applyFilters" />
           <div class="flex gap-2">
-            <input v-model="experience" class="h-10 min-w-0 flex-1 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" placeholder="Experience" @keyup.enter="applyFilters" />
+            <input v-if="!isFreelanceFeed" v-model="experience" class="h-10 min-w-0 flex-1 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" placeholder="Experience" @keyup.enter="applyFilters" />
             <button type="button" class="h-10 rounded-[0.85rem] bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]" @click="applyFilters">Apply</button>
             <button type="button" class="h-10 rounded-[0.85rem] border border-[color:var(--border-soft)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)]" @click="resetFilters">Reset</button>
           </div>
@@ -511,42 +620,41 @@ onMounted(() => {
         <div class="rounded-[0.9rem] border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-200">{{ error }}</div>
       </div>
 
-      <div v-else-if="jobs.length === 0" class="flex min-h-64 items-center justify-center p-4 text-center">
+      <div v-else-if="visibleRows.length === 0" class="flex min-h-64 items-center justify-center p-4 text-center">
         <div>
           <p class="font-semibold text-[var(--text-primary)]">No jobs found</p>
           <p class="mt-1 text-sm text-[var(--text-secondary)]">Create a job or adjust the active filters.</p>
         </div>
       </div>
 
-      <div v-else class="app-scroll hidden max-w-full overflow-x-auto md:block">
+      <div v-else-if="activeFeedTab === 'regular'" class="app-scroll hidden max-w-full overflow-x-auto md:block">
         <table class="w-full min-w-[62rem] table-fixed text-left text-sm">
           <thead class="border-b border-[color:var(--border-soft)] text-[0.72rem] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
             <tr>
-              <th class="w-[30%] px-4 py-3 font-semibold">Job</th>
-              <th class="w-[16%] px-4 py-3 font-semibold">Company</th>
-              <th class="w-[14%] px-4 py-3 font-semibold">Location</th>
-              <th class="w-[13%] px-4 py-3 font-semibold">Type</th>
-              <th class="w-[9%] px-4 py-3 font-semibold">Applicants</th>
-              <th class="w-[10%] px-4 py-3 font-semibold">Status</th>
-              <th class="w-[8%] px-4 py-3 text-right font-semibold">Actions</th>
+              <th class="w-[4rem] px-4 py-3 font-semibold">#</th>
+              <th class="w-[22%] px-4 py-3 font-semibold">Post name</th>
+              <th class="w-[18%] px-4 py-3 font-semibold">Company</th>
+              <th class="w-[12%] px-4 py-3 font-semibold">Location</th>
+              <th class="w-[14%] px-4 py-3 font-semibold">Return email</th>
+              <th class="w-[12%] px-4 py-3 font-semibold">End Date</th>
+              <th class="w-[12%] px-4 py-3 font-semibold">Status</th>
+              <th class="w-[8%] px-4 py-3 text-right font-semibold">Action</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-[color:var(--border-soft)]">
-            <tr v-for="job in jobs" :key="job.id">
+            <tr v-for="(job, index) in jobs" :key="job.id">
+              <td class="px-4 py-3 text-[var(--text-secondary)]">{{ (page - 1) * perPage + index + 1 }}</td>
               <td class="px-4 py-3">
-                <p class="truncate font-semibold text-[var(--text-primary)]">{{ job.title }}</p>
-                <p class="mt-1 truncate text-sm text-[var(--text-secondary)]">{{ job.summary || job.description || job.slug }}</p>
+                <button type="button" class="max-w-full truncate font-semibold text-[var(--accent-strong)] hover:underline" @click="viewingJob = job">{{ job.title }}</button>
+                <p class="mt-1 truncate text-xs text-[var(--text-tertiary)]">{{ job.slug }}</p>
                 <div v-if="job.skills.length" class="mt-2 flex flex-wrap gap-1.5 overflow-hidden">
-                  <span v-for="jobSkill in job.skills.slice(0, 3)" :key="jobSkill" class="rounded-full bg-[var(--surface-muted)] px-2 py-1 text-[0.7rem] font-semibold text-[var(--text-tertiary)]">{{ jobSkill }}</span>
+                  <span v-for="jobSkill in job.skills.slice(0, 2)" :key="jobSkill" class="rounded-full bg-[var(--surface-muted)] px-2 py-1 text-[0.7rem] font-semibold text-[var(--text-tertiary)]">{{ jobSkill }}</span>
                 </div>
               </td>
               <td class="truncate px-4 py-3 text-[var(--text-secondary)]">{{ job.companyName }}</td>
               <td class="truncate px-4 py-3 text-[var(--text-secondary)]">{{ job.location || 'Not listed' }}</td>
-              <td class="px-4 py-3 capitalize text-[var(--text-secondary)]">
-                <div class="truncate">{{ formatLabel(job.type) }}</div>
-                <div class="mt-1 truncate text-xs text-[var(--text-tertiary)]">{{ formatLabel(job.workMode) }}</div>
-              </td>
-              <td class="px-4 py-3 font-semibold text-[var(--text-primary)]">{{ job.applicantCount }}</td>
+              <td class="truncate px-4 py-3 text-[var(--text-secondary)]">{{ job.applicationEmail || 'Not listed' }}</td>
+              <td class="truncate px-4 py-3 text-[var(--text-secondary)]">{{ formatDate(job.applicationEndDate) }}</td>
               <td class="px-4 py-3">
                 <StatusChip :tone="statusTone(job.status)">{{ formatLabel(job.status) }}</StatusChip>
               </td>
@@ -565,7 +673,48 @@ onMounted(() => {
         </table>
       </div>
 
-      <div v-if="!loading && !error && jobs.length > 0" class="space-y-3 p-4 md:hidden">
+      <div v-else class="app-scroll hidden max-w-full overflow-x-auto md:block">
+        <table class="w-full min-w-[62rem] table-fixed text-left text-sm">
+          <thead class="border-b border-[color:var(--border-soft)] text-[0.72rem] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+            <tr>
+              <th class="w-[4rem] px-4 py-3 font-semibold">#</th>
+              <th class="w-[22%] px-4 py-3 font-semibold">Post name</th>
+              <th class="w-[18%] px-4 py-3 font-semibold">Company</th>
+              <th class="w-[12%] px-4 py-3 font-semibold">Location</th>
+              <th class="w-[14%] px-4 py-3 font-semibold">Return email</th>
+              <th class="w-[12%] px-4 py-3 font-semibold">End Date</th>
+              <th class="w-[12%] px-4 py-3 font-semibold">Status</th>
+              <th class="w-[8%] px-4 py-3 text-right font-semibold">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[color:var(--border-soft)]">
+            <tr v-for="(job, index) in freelanceJobs" :key="job.id">
+              <td class="px-4 py-3 text-[var(--text-secondary)]">{{ (page - 1) * perPage + index + 1 }}</td>
+              <td class="px-4 py-3">
+                <button type="button" class="max-w-full truncate font-semibold text-[var(--accent-strong)] hover:underline" @click="viewingFreelanceJob = job">{{ job.title }}</button>
+                <p class="mt-1 truncate text-xs text-[var(--text-tertiary)]">{{ job.slug }}</p>
+              </td>
+              <td class="truncate px-4 py-3 text-[var(--text-secondary)]">{{ job.companyName }}</td>
+              <td class="truncate px-4 py-3 text-[var(--text-secondary)]">{{ job.location || 'Not listed' }}</td>
+              <td class="truncate px-4 py-3 text-[var(--text-secondary)]">{{ job.postedByUserId }}</td>
+              <td class="truncate px-4 py-3 text-[var(--text-secondary)]">{{ formatDate(job.applicationEndDate) }}</td>
+              <td class="px-4 py-3"><StatusChip :tone="statusTone(job.status)">{{ formatLabel(job.status) }}</StatusChip></td>
+              <td class="px-4 py-3">
+                <div class="flex justify-end gap-2">
+                  <button type="button" class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-[color:var(--border-soft)] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]" :title="`View ${job.title}`" @click="viewingFreelanceJob = job">
+                    <Eye class="h-4 w-4" />
+                  </button>
+                  <select class="h-9 rounded-[0.75rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-2 text-xs capitalize outline-none focus:border-[var(--accent)] disabled:opacity-60" :disabled="updatingStatusId === job.id" :value="job.status" @change="changeFreelanceJobStatus(job, ($event.target as HTMLSelectElement).value as FreelanceJobStatus)">
+                    <option v-for="option in statusOptions.filter((item) => item.value && item.value !== 'draft')" :key="option.value" :value="option.value">{{ option.label }}</option>
+                  </select>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-if="!loading && !error && activeFeedTab === 'regular' && visibleRows.length > 0" class="space-y-3 p-4 md:hidden">
         <article v-for="job in jobs" :key="job.id" class="rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
@@ -582,6 +731,29 @@ onMounted(() => {
           </div>
           <div class="mt-3 flex justify-end">
             <button type="button" class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-[color:var(--border-soft)] text-[var(--text-secondary)]" :title="`View ${job.title}`" @click="viewingJob = job">
+              <Eye class="h-4 w-4" />
+            </button>
+          </div>
+        </article>
+      </div>
+
+      <div v-if="!loading && !error && activeFeedTab === 'freelance' && visibleRows.length > 0" class="space-y-3 p-4 md:hidden">
+        <article v-for="job in freelanceJobs" :key="job.id" class="rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-semibold text-[var(--text-primary)]">{{ job.title }}</p>
+              <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ job.companyName }}</p>
+            </div>
+            <StatusChip :tone="statusTone(job.status)">{{ formatLabel(job.status) }}</StatusChip>
+          </div>
+          <p class="mt-3 line-clamp-3 text-sm text-[var(--text-secondary)]">{{ job.description || 'No description provided' }}</p>
+          <div class="mt-3 flex flex-wrap gap-2 text-xs text-[var(--text-tertiary)]">
+            <span class="inline-flex items-center gap-1"><MapPin class="h-3.5 w-3.5" />{{ job.location || 'Not listed' }}</span>
+            <span>{{ formatLabel(job.type) }}</span>
+            <span>{{ job.applicantCount }} applicants</span>
+          </div>
+          <div class="mt-3 flex justify-end">
+            <button type="button" class="grid h-9 w-9 place-items-center rounded-[0.75rem] border border-[color:var(--border-soft)] text-[var(--text-secondary)]" :title="`View ${job.title}`" @click="viewingFreelanceJob = job">
               <Eye class="h-4 w-4" />
             </button>
           </div>
@@ -660,6 +832,66 @@ onMounted(() => {
             <ul class="mt-2 space-y-2 text-sm text-[var(--text-secondary)]">
               <li v-for="item in viewingJob.responsibilities" :key="item" class="rounded-[0.75rem] bg-[var(--surface-secondary)] px-3 py-2">{{ item }}</li>
             </ul>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="viewingFreelanceJob" class="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-bg)] px-4 py-6" role="dialog" aria-modal="true" @click.self="viewingFreelanceJob = null">
+      <section class="app-scroll max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-y-auto rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">Freelance job details</p>
+            <h2 class="mt-2 truncate font-display text-xl font-semibold text-[var(--text-primary)]">{{ viewingFreelanceJob.title }}</h2>
+            <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ viewingFreelanceJob.companyName }} / {{ viewingFreelanceJob.location || 'Not listed' }}</p>
+          </div>
+          <button type="button" class="grid h-9 w-9 place-items-center rounded-[0.75rem] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]" @click="viewingFreelanceJob = null">
+            <X class="h-4 w-4" />
+          </button>
+        </div>
+
+        <div class="mt-4 flex flex-wrap gap-2">
+          <StatusChip :tone="statusTone(viewingFreelanceJob.status)">{{ formatLabel(viewingFreelanceJob.status) }}</StatusChip>
+          <StatusChip tone="accent">{{ formatLabel(viewingFreelanceJob.type) }}</StatusChip>
+          <StatusChip :tone="viewingFreelanceJob.verified ? 'success' : 'muted'">{{ viewingFreelanceJob.verified ? 'Verified' : 'Unverified' }}</StatusChip>
+          <select class="h-9 rounded-[0.75rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-2 text-xs capitalize outline-none focus:border-[var(--accent)] disabled:opacity-60" :disabled="updatingStatusId === viewingFreelanceJob.id" :value="viewingFreelanceJob.status" @change="changeFreelanceJobStatus(viewingFreelanceJob, ($event.target as HTMLSelectElement).value as FreelanceJobStatus)">
+            <option v-for="option in statusOptions.filter((item) => item.value && item.value !== 'draft')" :key="option.value" :value="option.value">{{ option.label }}</option>
+          </select>
+        </div>
+
+        <div class="mt-5 grid gap-3 sm:grid-cols-2">
+          <div class="rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3">
+            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Fee</p>
+            <p class="mt-2 font-semibold text-[var(--text-primary)]">{{ formatFee(viewingFreelanceJob) }}</p>
+          </div>
+          <div class="rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3">
+            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Applications</p>
+            <p class="mt-2 font-semibold text-[var(--text-primary)]">{{ viewingFreelanceJob.applicantCount }} applicants</p>
+          </div>
+          <div class="rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3">
+            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Posted by</p>
+            <p class="mt-2 truncate font-semibold text-[var(--text-primary)]">{{ viewingFreelanceJob.postedByUserId }}</p>
+          </div>
+          <div class="rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3">
+            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Deadline</p>
+            <p class="mt-2 font-semibold text-[var(--text-primary)]">{{ formatDate(viewingFreelanceJob.applicationEndDate) }}</p>
+          </div>
+        </div>
+
+        <div class="mt-5 space-y-5">
+          <div>
+            <h3 class="font-display text-base font-semibold text-[var(--text-primary)]">Description</h3>
+            <p class="mt-2 whitespace-pre-line break-words text-sm leading-6 text-[var(--text-secondary)]">{{ viewingFreelanceJob.description || 'No description provided' }}</p>
+          </div>
+          <div>
+            <h3 class="font-display text-base font-semibold text-[var(--text-primary)]">Qualifications</h3>
+            <p class="mt-2 whitespace-pre-line break-words text-sm leading-6 text-[var(--text-secondary)]">{{ viewingFreelanceJob.qualifications || 'No qualifications provided' }}</p>
+          </div>
+          <div v-if="viewingFreelanceJob.skills.length">
+            <h3 class="font-display text-base font-semibold text-[var(--text-primary)]">Skills</h3>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <span v-for="jobSkill in viewingFreelanceJob.skills" :key="jobSkill" class="rounded-full bg-[var(--surface-muted)] px-2.5 py-1 text-xs font-semibold text-[var(--text-secondary)]">{{ jobSkill }}</span>
+            </div>
           </div>
         </div>
       </section>

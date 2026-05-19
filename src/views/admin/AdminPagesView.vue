@@ -13,7 +13,7 @@ type PageCategory = {
 
 type Page = {
   id: string
-  ownerId: string
+  ownerId?: string | null
   categoryId: string | null
   name: string
   slug: string
@@ -312,7 +312,7 @@ onMounted(() => {
           <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">Pages</p>
           <h1 class="mt-2 font-display text-xl font-semibold text-[var(--text-primary)]">Manage Pages</h1>
           <p class="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">
-            Create and review public pages, approval status, ownership, and engagement totals.
+            Review public pages, approval status, media, and engagement totals.
           </p>
         </div>
 
