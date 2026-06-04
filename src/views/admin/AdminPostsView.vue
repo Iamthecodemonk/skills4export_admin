@@ -42,6 +42,8 @@ type ModerationAction = {
 
 const posts = ref<Post[]>([])
 const search = ref('')
+const statusFilter = ref('')
+const sortFilter = ref<'latest' | 'oldest' | 'middle'>('latest')
 const page = ref(1)
 const perPage = ref(20)
 const total = ref(0)
@@ -68,14 +70,45 @@ const commentsLoading = ref(false)
 const commentsError = ref<string | null>(null)
 const commentsLoadedPostId = ref<string | null>(null)
 
+const statusFilterOptions = [
+  { label: 'All statuses', value: '' },
+  { label: 'Deleted', value: 'deleted' },
+  { label: 'Suspended', value: 'suspended' },
+  { label: 'Unsuspended', value: 'active' },
+  { label: 'Approved', value: 'approved' },
+]
+
+const sortFilterOptions: Array<{ label: string; value: 'latest' | 'oldest' | 'middle' }> = [
+  { label: 'Latest posts', value: 'latest' },
+  { label: 'Oldest posts', value: 'oldest' },
+  { label: 'Middle posts', value: 'middle' },
+]
+
 const filteredPosts = computed(() => {
   const term = search.value.trim().toLowerCase()
+  const status = statusFilter.value
 
-  if (!term) return posts.value
+  const searched = posts.value.filter((post) => {
+    const matchesSearch = !term || `${post.title} ${post.content} ${post.user?.name || ''} ${post.user?.email || ''} ${post.community?.name || ''}`.toLowerCase().includes(term)
+    const matchesStatus = !status || postStatus(post) === status
 
-  return posts.value.filter((post) => {
-    return `${post.title} ${post.content} ${post.user?.name || ''} ${post.user?.email || ''} ${post.community?.name || ''}`.toLowerCase().includes(term)
+    return matchesSearch && matchesStatus
   })
+
+  const sorted = [...searched].sort((a, b) => {
+    const first = new Date(a.created_at).getTime()
+    const second = new Date(b.created_at).getTime()
+    return sortFilter.value === 'oldest' ? first - second : second - first
+  })
+
+  if (sortFilter.value !== 'middle' || sorted.length < 3) return sorted
+
+  const middleIndex = Math.floor(sorted.length / 2)
+  return [
+    sorted[middleIndex],
+    ...sorted.slice(0, middleIndex).reverse(),
+    ...sorted.slice(middleIndex + 1),
+  ]
 })
 
 const postStats = computed(() => [
@@ -418,10 +451,18 @@ onMounted(() => {
           <h2 class="font-display text-base font-semibold text-[var(--text-primary)]">Posts</h2>
           <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ from || 0 }}-{{ to || 0 }} of {{ total }} posts</p>
         </div>
-        <label class="flex h-10 items-center gap-2 rounded-[0.85rem] bg-[var(--search-bg)] px-3 text-[var(--text-tertiary)] md:w-80">
-          <Search class="h-4 w-4" />
-          <input v-model="search" class="min-w-0 flex-1 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]" placeholder="Search loaded posts" type="search" />
-        </label>
+        <div class="grid gap-2 md:w-[42rem] md:grid-cols-[1fr_12rem_12rem]">
+          <label class="flex h-10 items-center gap-2 rounded-[0.85rem] bg-[var(--search-bg)] px-3 text-[var(--text-tertiary)]">
+            <Search class="h-4 w-4" />
+            <input v-model="search" class="min-w-0 flex-1 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]" placeholder="Search loaded posts" type="search" />
+          </label>
+          <select v-model="statusFilter" class="h-10 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm font-semibold text-[var(--text-secondary)] outline-none focus:border-[var(--accent)]">
+            <option v-for="option in statusFilterOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+          </select>
+          <select v-model="sortFilter" class="h-10 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm font-semibold text-[var(--text-secondary)] outline-none focus:border-[var(--accent)]">
+            <option v-for="option in sortFilterOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+          </select>
+        </div>
       </div>
 
       <div v-if="loading" class="flex min-h-64 items-center justify-center gap-2 text-sm font-medium text-[var(--text-secondary)]">
@@ -438,9 +479,9 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-else class="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
-        <article v-for="post in filteredPosts" :key="post.id" class="overflow-hidden rounded-[0.95rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)]">
-          <div class="relative aspect-[1.35/1] bg-[var(--surface-muted)]">
+      <div v-else class="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        <article v-for="post in filteredPosts" :key="post.id" class="overflow-hidden rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)]">
+          <div class="relative aspect-[1.55/1] bg-[var(--surface-muted)]">
             <template v-if="getPostMediaAssets(post).length">
               <img
                 v-if="isImageAsset(getPostMediaAssets(post)[getMediaIndex(post)])"
@@ -475,23 +516,23 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="p-4">
+          <div class="p-3">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <h3 class="line-clamp-2 font-display text-base font-semibold leading-5 text-[var(--text-primary)]">{{ post.title }}</h3>
-                <p class="mt-2 truncate text-sm text-[var(--text-secondary)]">{{ postAuthor(post) }}</p>
+                <h3 class="line-clamp-2 font-display text-sm font-semibold leading-5 text-[var(--text-primary)]">{{ post.title }}</h3>
+                <p class="mt-1 truncate text-xs text-[var(--text-secondary)]">{{ postAuthor(post) }}</p>
               </div>
               <StatusChip :tone="post.is_report ? 'danger' : 'muted'">{{ post.is_report ? 'Reported' : post.type }}</StatusChip>
             </div>
 
-            <p class="mt-3 line-clamp-2 min-h-10 text-sm leading-5 text-[var(--text-secondary)]">{{ stripHtml(post.content) }}</p>
+            <p class="mt-2 line-clamp-2 min-h-9 text-xs leading-5 text-[var(--text-secondary)]">{{ stripHtml(post.content) }}</p>
 
-            <div class="mt-4 flex items-center justify-between gap-3 border-t border-[color:var(--border-soft)] pt-3">
+            <div class="mt-3 flex items-center justify-between gap-3 border-t border-[color:var(--border-soft)] pt-3">
               <div class="text-xs text-[var(--text-tertiary)]">
                 <p>{{ formatDate(post.created_at) }}</p>
                 <p class="mt-1">{{ post.comment_count }} comments / {{ post.score }} score</p>
               </div>
-              <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]" @click="openPost(post)">
+              <button type="button" class="inline-flex h-8 items-center justify-center gap-1.5 rounded-[0.7rem] bg-[var(--accent)] px-2.5 text-xs font-semibold text-white hover:bg-[var(--accent-strong)]" @click="openPost(post)">
                 <Eye class="h-4 w-4" />
                 Read more
               </button>
