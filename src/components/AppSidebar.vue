@@ -54,6 +54,7 @@ const jobLinks = [
 
 const pageLinks = [
   { label: 'Page categories', to: '/admin/page-categories' },
+  { label: 'Manage pages', to: '/admin/pages' },
 ]
 
 const communitiesActive = computed(() => {
