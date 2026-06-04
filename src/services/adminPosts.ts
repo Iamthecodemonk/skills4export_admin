@@ -43,6 +43,7 @@ export type Post = {
   is_liked: boolean
   is_saved: boolean
   is_report: boolean
+  status?: string | null
   type: string
   user: PostUser
   community: PostCommunity | null
@@ -87,6 +88,48 @@ export type DeletePostResponse = {
   data: unknown[]
 }
 
+export type PostComment = {
+  id: string
+  post_id?: string
+  postId?: string
+  user_id?: string
+  userId?: string
+  content?: string
+  body?: string
+  status?: string | null
+  is_report?: boolean
+  isReport?: boolean
+  user?: PostUser | null
+  created_at?: string
+  createdAt?: string
+  updated_at?: string
+  updatedAt?: string
+  [key: string]: unknown
+}
+
+export type PostStatusResponse = {
+  success: boolean
+  message?: string
+  data: Post
+}
+
+export type ListPostCommentsResponse = {
+  current_page?: number
+  data: PostComment[]
+  from?: number | null
+  last_page?: number
+  per_page?: number
+  to?: number | null
+  total?: number
+  [key: string]: unknown
+}
+
+export type CommentStatusResponse = {
+  success: boolean
+  message?: string
+  data: PostComment
+}
+
 export async function listPosts(params: { page?: number; per_page?: number } = {}) {
   const search = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
@@ -113,8 +156,44 @@ export async function deletePost(id: string, userId: string) {
   })
 }
 
+export async function updatePostStatus(id: string, status: string) {
+  return apiRequest<PostStatusResponse>(`/api/posts/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
+}
+
+export async function listPostComments(postId: string, params: { page?: number; per_page?: number } = {}) {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value) !== '') {
+      search.set(key, String(value))
+    }
+  })
+
+  const path = `/api/posts/${postId}/comments${search.toString() ? `?${search.toString()}` : ''}`
+  return apiRequest<ListPostCommentsResponse>(path)
+}
+
+export async function updatePostCommentStatus(postId: string, commentId: string, status: string) {
+  return apiRequest<CommentStatusResponse>(`/api/posts/${postId}/comments/${commentId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
+}
+
+export async function deletePostComment(postId: string, commentId: string) {
+  return apiRequest<CommentStatusResponse>(`/api/posts/${postId}/comments/${commentId}`, {
+    method: 'DELETE',
+  })
+}
+
 export default {
   listPosts,
   createPost,
   deletePost,
+  updatePostStatus,
+  listPostComments,
+  updatePostCommentStatus,
+  deletePostComment,
 }
