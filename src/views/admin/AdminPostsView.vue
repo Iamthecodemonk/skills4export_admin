@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import {
   Ban,
+  BarChart3,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -53,6 +54,7 @@ const updatingPostId = ref<string | null>(null)
 const updatingCommentId = ref<string | null>(null)
 const error = ref<string | null>(null)
 const viewingPost = ref<Post | null>(null)
+const showingStats = ref(false)
 const activePostTab = ref<PostDetailTab>('main')
 const postTabs: Array<{ label: string; value: PostDetailTab; icon: typeof FileText }> = [
   { label: 'Main', value: 'main', icon: FileText },
@@ -107,6 +109,59 @@ function formatDate(value?: string | null) {
 function formatLabel(value?: string | null) {
   if (!value) return 'Not available'
   return value.replace(/[-_]/g, ' ')
+}
+
+function stripHtml(value?: string | null) {
+  if (!value) return ''
+  return value
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function sanitizeHtml(value?: string | null) {
+  if (!value) return '<p>No description available.</p>'
+
+  const parser = new DOMParser()
+  const document = parser.parseFromString(value, 'text/html')
+  const allowedTags = new Set(['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'blockquote', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span'])
+  const allowedAttributes = new Set(['href', 'target', 'rel'])
+
+  document.querySelectorAll('script, style, iframe, object, embed, form, input, button').forEach((node) => node.remove())
+
+  Array.from(document.body.querySelectorAll('*')).forEach((element) => {
+    const tag = element.tagName.toLowerCase()
+
+    if (!allowedTags.has(tag)) {
+      element.replaceWith(...Array.from(element.childNodes))
+      return
+    }
+
+    Array.from(element.attributes).forEach((attribute) => {
+      const name = attribute.name.toLowerCase()
+      const value = attribute.value.trim().toLowerCase()
+      const isUnsafeHref = name === 'href' && (value.startsWith('javascript:') || value.startsWith('data:'))
+
+      if (!allowedAttributes.has(name) || isUnsafeHref) {
+        element.removeAttribute(attribute.name)
+      }
+    })
+
+    if (tag === 'a') {
+      element.setAttribute('target', '_blank')
+      element.setAttribute('rel', 'noreferrer')
+    }
+  })
+
+  return document.body.innerHTML || `<p>${stripHtml(value)}</p>`
 }
 
 function postAuthor(post: Post) {
@@ -344,25 +399,16 @@ onMounted(() => {
           <p class="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">Review post media, open full details, moderate posts, and manage comments.</p>
         </div>
 
-        <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] border border-[color:var(--border-soft)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)] disabled:opacity-60" :disabled="loading" @click="fetchPosts">
-          <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
-          Refresh
-        </button>
-      </div>
-    </section>
-
-    <section class="min-w-0 overflow-hidden">
-      <div class="app-scroll flex snap-x gap-4 overflow-x-auto pb-1">
-        <article v-for="stat in postStats" :key="stat.label" class="min-h-36 min-w-[14rem] snap-start rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
-          <div class="flex items-start justify-between gap-3">
-            <p class="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{{ stat.label }}</p>
-            <span class="grid h-9 w-9 place-items-center rounded-[0.8rem] bg-[var(--accent-soft)] text-[var(--accent-strong)]">
-              <component :is="stat.icon" class="h-4 w-4" />
-            </span>
-          </div>
-          <p class="mt-5 font-display text-3xl font-semibold leading-none text-[var(--text-primary)]">{{ stat.value }}</p>
-          <p class="mt-3 text-sm text-[var(--text-secondary)]">{{ stat.detail }}</p>
-        </article>
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] border border-[color:var(--border-soft)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)]" @click="showingStats = true">
+            <BarChart3 class="h-4 w-4" />
+            Stats
+          </button>
+          <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] border border-[color:var(--border-soft)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)] disabled:opacity-60" :disabled="loading" @click="fetchPosts">
+            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
+            Refresh
+          </button>
+        </div>
       </div>
     </section>
 
@@ -438,7 +484,7 @@ onMounted(() => {
               <StatusChip :tone="post.is_report ? 'danger' : 'muted'">{{ post.is_report ? 'Reported' : post.type }}</StatusChip>
             </div>
 
-            <p class="mt-3 line-clamp-2 min-h-10 text-sm leading-5 text-[var(--text-secondary)]">{{ post.content }}</p>
+            <p class="mt-3 line-clamp-2 min-h-10 text-sm leading-5 text-[var(--text-secondary)]">{{ stripHtml(post.content) }}</p>
 
             <div class="mt-4 flex items-center justify-between gap-3 border-t border-[color:var(--border-soft)] pt-3">
               <div class="text-xs text-[var(--text-tertiary)]">
@@ -526,7 +572,7 @@ onMounted(() => {
           <div v-if="activePostTab === 'main'" class="mt-5 space-y-4">
             <div class="rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3">
               <p class="text-sm font-semibold text-[var(--text-primary)]">Description</p>
-              <p class="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-secondary)]">{{ viewingPost.content }}</p>
+              <div class="post-content mt-2 break-words text-sm leading-6 text-[var(--text-secondary)]" v-html="sanitizeHtml(viewingPost.content)"></div>
             </div>
 
             <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -649,6 +695,33 @@ onMounted(() => {
               </article>
             </div>
           </div>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="showingStats" class="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-bg)] px-4 py-6" role="dialog" aria-modal="true" @click.self="showingStats = false">
+      <section class="w-full max-w-3xl rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">Posts</p>
+            <h2 class="mt-2 font-display text-xl font-semibold text-[var(--text-primary)]">Post stats</h2>
+          </div>
+          <button type="button" class="grid h-9 w-9 shrink-0 place-items-center rounded-[0.75rem] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]" title="Close stats" @click="showingStats = false">
+            <X class="h-4 w-4" />
+          </button>
+        </div>
+
+        <div class="mt-5 grid gap-3 sm:grid-cols-2">
+          <article v-for="stat in postStats" :key="stat.label" class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-4">
+            <div class="flex items-start justify-between gap-3">
+              <p class="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{{ stat.label }}</p>
+              <span class="grid h-9 w-9 place-items-center rounded-[0.8rem] bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+                <component :is="stat.icon" class="h-4 w-4" />
+              </span>
+            </div>
+            <p class="mt-5 font-display text-3xl font-semibold leading-none text-[var(--text-primary)]">{{ stat.value }}</p>
+            <p class="mt-3 text-sm text-[var(--text-secondary)]">{{ stat.detail }}</p>
+          </article>
         </div>
       </section>
     </div>
