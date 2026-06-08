@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Megaphone,
+  MessageCircle,
   MessageSquareText,
   FileStack,
   ShieldCheck,
@@ -30,20 +31,17 @@ const emit = defineEmits<{
 const route = useRoute()
 const router = useRouter()
 const communitiesOpen = ref(route.path.startsWith('/admin/communit'))
-const jobsOpen = ref(route.path.startsWith('/admin/jobs'))
+const postsOpen = ref(route.path.startsWith('/admin/posts') || route.path.startsWith('/admin/reported-posts'))
+const jobsOpen = ref(route.path.startsWith('/admin/jobs') || route.path.startsWith('/admin/reported-jobs'))
+const questionsOpen = ref(route.path.startsWith('/admin/questions') || route.path.startsWith('/admin/reported-questions'))
+const answersOpen = ref(route.path.startsWith('/admin/reported-answers'))
+const commentsOpen = ref(route.path.startsWith('/admin/reported-comments'))
 const pagesOpen = ref(route.path.startsWith('/admin/page'))
 
 const adminLinks = [
   { label: 'HOME', to: '/admin', icon: LayoutDashboard },
   { label: 'Manage users', to: '/admin/users', icon: Users },
   { label: 'Manage freelancers', to: '/admin/freelancers', icon: UserRoundCheck },
-  { label: 'Manage questions', to: '/admin/questions', icon: CircleHelp },
-  { label: 'Manage posts', to: '/admin/posts', icon: MessageSquareText },
-  { label: 'Reported posts', to: '/admin/reported-posts', icon: MessageSquareText },
-  { label: 'Reported jobs', to: '/admin/reported-jobs', icon: MessageSquareText },
-  { label: 'Reported questions', to: '/admin/reported-questions', icon: MessageSquareText },
-  { label: 'Reported answers', to: '/admin/reported-answers', icon: MessageSquareText },
-  { label: 'Reported comments', to: '/admin/reported-comments', icon: MessageSquareText },
   { label: 'Manage adverts', to: '/admin/adverts', icon: Megaphone },
   { label: 'Manage contest', to: '/admin/contest', icon: Trophy },
   { label: 'Manage admin users', to: '/admin/admin-users', icon: ShieldCheck },
@@ -53,8 +51,27 @@ const communityLinks = [
   { label: 'Communities', to: '/admin/communities' },
 ]
 
+const postLinks = [
+  { label: 'Manage posts', to: '/admin/posts' },
+  { label: 'Reported posts', to: '/admin/reported-posts' },
+]
+
 const jobLinks = [
   { label: 'Manage jobs', to: '/admin/jobs' },
+  { label: 'Reported jobs', to: '/admin/reported-jobs' },
+]
+
+const questionLinks = [
+  { label: 'Manage questions', to: '/admin/questions' },
+  { label: 'Reported questions', to: '/admin/reported-questions' },
+]
+
+const answerLinks = [
+  { label: 'Reported answers', to: '/admin/reported-answers' },
+]
+
+const commentLinks = [
+  { label: 'Reported comments', to: '/admin/reported-comments' },
 ]
 
 const pageLinks = [
@@ -68,6 +85,22 @@ const communitiesActive = computed(() => {
 
 const jobsActive = computed(() => {
   return jobLinks.some((link) => route.path === link.to)
+})
+
+const postsActive = computed(() => {
+  return postLinks.some((link) => route.path === link.to)
+})
+
+const questionsActive = computed(() => {
+  return questionLinks.some((link) => route.path === link.to)
+})
+
+const answersActive = computed(() => {
+  return answerLinks.some((link) => route.path === link.to)
+})
+
+const commentsActive = computed(() => {
+  return commentLinks.some((link) => route.path === link.to)
 })
 
 const pagesActive = computed(() => {
@@ -117,6 +150,110 @@ async function handleLogout() {
             <component :is="link.icon" class="h-4 w-4 shrink-0" />
             <span>{{ link.label }}</span>
           </RouterLink>
+
+          <div class="pt-1">
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-[0.85rem] px-3 py-2.5 text-left text-sm font-medium leading-5 text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
+              :class="postsActive ? 'bg-[var(--accent-soft)] text-[var(--accent-strong)]' : ''"
+              :aria-expanded="postsOpen"
+              @click="postsOpen = !postsOpen"
+            >
+              <MessageSquareText class="h-4 w-4 shrink-0" />
+              <span class="min-w-0 flex-1 truncate">Posts</span>
+              <ChevronDown class="ml-auto h-4 w-4 transition-transform" :class="postsOpen ? 'rotate-180' : ''" />
+            </button>
+            <div v-if="postsOpen" class="ml-3 mt-1 space-y-1 border-l border-[color:var(--border-soft)] pl-3">
+              <RouterLink
+                v-for="link in postLinks"
+                :key="link.to"
+                :to="link.to"
+                class="flex rounded-[0.75rem] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
+                active-class="bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+                @click="$emit('close')"
+              >
+                {{ link.label }}
+              </RouterLink>
+            </div>
+          </div>
+
+          <div class="pt-1">
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-[0.85rem] px-3 py-2.5 text-left text-sm font-medium leading-5 text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
+              :class="questionsActive ? 'bg-[var(--accent-soft)] text-[var(--accent-strong)]' : ''"
+              :aria-expanded="questionsOpen"
+              @click="questionsOpen = !questionsOpen"
+            >
+              <CircleHelp class="h-4 w-4 shrink-0" />
+              <span class="min-w-0 flex-1 truncate">Questions</span>
+              <ChevronDown class="ml-auto h-4 w-4 transition-transform" :class="questionsOpen ? 'rotate-180' : ''" />
+            </button>
+            <div v-if="questionsOpen" class="ml-3 mt-1 space-y-1 border-l border-[color:var(--border-soft)] pl-3">
+              <RouterLink
+                v-for="link in questionLinks"
+                :key="link.to"
+                :to="link.to"
+                class="flex rounded-[0.75rem] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
+                active-class="bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+                @click="$emit('close')"
+              >
+                {{ link.label }}
+              </RouterLink>
+            </div>
+          </div>
+
+          <div class="pt-1">
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-[0.85rem] px-3 py-2.5 text-left text-sm font-medium leading-5 text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
+              :class="answersActive ? 'bg-[var(--accent-soft)] text-[var(--accent-strong)]' : ''"
+              :aria-expanded="answersOpen"
+              @click="answersOpen = !answersOpen"
+            >
+              <MessageCircle class="h-4 w-4 shrink-0" />
+              <span class="min-w-0 flex-1 truncate">Answers</span>
+              <ChevronDown class="ml-auto h-4 w-4 transition-transform" :class="answersOpen ? 'rotate-180' : ''" />
+            </button>
+            <div v-if="answersOpen" class="ml-3 mt-1 space-y-1 border-l border-[color:var(--border-soft)] pl-3">
+              <RouterLink
+                v-for="link in answerLinks"
+                :key="link.to"
+                :to="link.to"
+                class="flex rounded-[0.75rem] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
+                active-class="bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+                @click="$emit('close')"
+              >
+                {{ link.label }}
+              </RouterLink>
+            </div>
+          </div>
+
+          <div class="pt-1">
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-[0.85rem] px-3 py-2.5 text-left text-sm font-medium leading-5 text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
+              :class="commentsActive ? 'bg-[var(--accent-soft)] text-[var(--accent-strong)]' : ''"
+              :aria-expanded="commentsOpen"
+              @click="commentsOpen = !commentsOpen"
+            >
+              <ClipboardCheck class="h-4 w-4 shrink-0" />
+              <span class="min-w-0 flex-1 truncate">Comments</span>
+              <ChevronDown class="ml-auto h-4 w-4 transition-transform" :class="commentsOpen ? 'rotate-180' : ''" />
+            </button>
+            <div v-if="commentsOpen" class="ml-3 mt-1 space-y-1 border-l border-[color:var(--border-soft)] pl-3">
+              <RouterLink
+                v-for="link in commentLinks"
+                :key="link.to"
+                :to="link.to"
+                class="flex rounded-[0.75rem] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
+                active-class="bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+                @click="$emit('close')"
+              >
+                {{ link.label }}
+              </RouterLink>
+            </div>
+          </div>
 
           <div class="pt-1">
             <button
