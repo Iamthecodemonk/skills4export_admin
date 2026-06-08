@@ -63,6 +63,30 @@ const router = createRouter({
       },
     },
     {
+      path: '/admin/reported-jobs',
+      name: 'Reported jobs',
+      component: () => import('../views/admin/AdminReportedItemsView.vue'),
+      props: { kind: 'jobs', pageTitle: 'Reported Jobs' },
+    },
+    {
+      path: '/admin/reported-questions',
+      name: 'Reported questions',
+      component: () => import('../views/admin/AdminReportedItemsView.vue'),
+      props: { kind: 'questions', pageTitle: 'Reported Questions' },
+    },
+    {
+      path: '/admin/reported-answers',
+      name: 'Reported answers',
+      component: () => import('../views/admin/AdminReportedItemsView.vue'),
+      props: { kind: 'answers', pageTitle: 'Reported Answers' },
+    },
+    {
+      path: '/admin/reported-comments',
+      name: 'Reported comments',
+      component: () => import('../views/admin/AdminReportedItemsView.vue'),
+      props: { kind: 'comments', pageTitle: 'Reported Comments' },
+    },
+    {
       path: '/admin/questions',
       name: 'Manage questions',
       component: AdminQuestionsView,

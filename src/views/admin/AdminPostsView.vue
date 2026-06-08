@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import {
+  AlertTriangle,
   Ban,
   BarChart3,
   CheckCircle2,
@@ -20,11 +21,14 @@ import {
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
+import { apiRequest } from '../../composables/useApi'
 import {
   deletePost,
   deletePostComment,
   listPostComments,
   listPosts,
+  reportPost,
+  reportPostComment,
   updatePostCommentStatus,
   updatePostStatus,
   type Post,
@@ -32,12 +36,29 @@ import {
   type PostMediaAsset,
 } from '../../services'
 
-type PostDetailTab = 'main' | 'moderate' | 'comments'
+type PostDetailTab = 'main' | 'moderate' | 'report' | 'comments'
 type ModerationAction = {
   label: string
   status: string
   tone?: 'danger' | 'success' | 'warning'
   icon: typeof CheckCircle2
+}
+
+type ReportedPostWrapper = {
+  id: string
+  target?: Post
+  data?: Post
+  reports_count?: number
+  reports?: unknown[]
+}
+
+type ReportedPostsResponse = {
+  data: ReportedPostWrapper[]
+  total?: number
+  from?: number | null
+  to?: number | null
+  last_page?: number
+  per_page?: number
 }
 
 const props = withDefaults(defineProps<{
@@ -64,6 +85,8 @@ const loading = ref(false)
 const deletingId = ref<string | null>(null)
 const updatingPostId = ref<string | null>(null)
 const updatingCommentId = ref<string | null>(null)
+const reportingPostId = ref<string | null>(null)
+const reportingCommentId = ref<string | null>(null)
 const error = ref<string | null>(null)
 const viewingPost = ref<Post | null>(null)
 const showingStats = ref(false)
@@ -71,6 +94,7 @@ const activePostTab = ref<PostDetailTab>('main')
 const postTabs: Array<{ label: string; value: PostDetailTab; icon: typeof FileText }> = [
   { label: 'Main', value: 'main', icon: FileText },
   { label: 'Moderate', value: 'moderate', icon: ShieldCheck },
+  { label: 'Report', value: 'report', icon: AlertTriangle },
   { label: 'Comments', value: 'comments', icon: MessageSquareText },
 ]
 const cardMediaIndex = ref<Record<string, number>>({})
@@ -301,13 +325,30 @@ async function fetchPosts() {
   error.value = null
 
   try {
+    if (props.reportedOnly) {
+      const search = new URLSearchParams({
+        page: String(page.value),
+        per_page: String(perPage.value),
+      })
+      const response = await apiRequest<ReportedPostsResponse>(`/api/admin/reports/posts?${search.toString()}`)
+      posts.value = (response.data || [])
+        .map((item) => item.target || item.data)
+        .filter((post): post is Post => Boolean(post))
+        .map((post) => ({ ...post, is_report: true }))
+      total.value = response.total || posts.value.length
+      lastPage.value = response.last_page || 1
+      perPage.value = response.per_page || perPage.value
+      from.value = response.from ?? (posts.value.length ? 1 : null)
+      to.value = response.to ?? (posts.value.length || null)
+      return
+    }
+
     const response = await listPosts({
       page: page.value,
       per_page: perPage.value,
-      ...(props.reportedOnly ? { is_report: 1, reported: 1 } : {}),
     })
 
-    posts.value = props.reportedOnly ? (response.data || []).filter((post) => post.is_report) : response.data || []
+    posts.value = response.data || []
     total.value = response.total || 0
     lastPage.value = response.last_page || 1
     perPage.value = response.per_page || perPage.value
@@ -400,6 +441,41 @@ async function changeCommentStatus(comment: PostComment, nextStatus: string) {
     toast.error(err instanceof Error ? err.message : 'Unable to update comment')
   } finally {
     updatingCommentId.value = null
+  }
+}
+
+async function submitPostReport(post: Post) {
+  reportingPostId.value = post.id
+
+  try {
+    await reportPost(post.id, {
+      reason: 'Admin report',
+      details: 'Flagged by an admin from the Manage Posts detail modal.',
+    })
+    posts.value = posts.value.map((item) => item.id === post.id ? { ...item, is_report: true } : item)
+    if (viewingPost.value?.id === post.id) viewingPost.value = { ...viewingPost.value, is_report: true }
+    toast.success('Post reported')
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Unable to report post')
+  } finally {
+    reportingPostId.value = null
+  }
+}
+
+async function submitCommentReport(comment: PostComment) {
+  reportingCommentId.value = comment.id
+
+  try {
+    await reportPostComment(comment.id, {
+      reason: 'Admin report',
+      details: 'Flagged by an admin from the post comments tab.',
+    })
+    comments.value = comments.value.map((item) => item.id === comment.id ? { ...item, is_report: true, isReport: true } : item)
+    toast.success('Comment reported')
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Unable to report comment')
+  } finally {
+    reportingCommentId.value = null
   }
 }
 
@@ -693,6 +769,22 @@ onMounted(() => {
             </div>
           </div>
 
+          <div v-else-if="activePostTab === 'report'" class="mt-5 space-y-4">
+            <div class="rounded-[0.9rem] border border-amber-200 bg-amber-50 p-4 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+              <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p class="font-semibold">Report this post</p>
+                  <p class="mt-1 text-sm">Flag this post so it appears on the Reported Posts page for admin review.</p>
+                </div>
+                <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] border border-amber-300 px-3 text-sm font-semibold disabled:cursor-wait disabled:opacity-60" :disabled="reportingPostId === viewingPost.id" @click="submitPostReport(viewingPost)">
+                  <Loader2 v-if="reportingPostId === viewingPost.id" class="h-4 w-4 animate-spin" />
+                  <AlertTriangle v-else class="h-4 w-4" />
+                  Report post
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div v-else class="mt-5 space-y-4">
             <div class="flex items-center justify-between gap-3">
               <div>
@@ -731,6 +823,16 @@ onMounted(() => {
                   </div>
 
                   <div class="grid shrink-0 gap-2 sm:grid-cols-2 lg:w-72">
+                    <button
+                      type="button"
+                      class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-amber-200 px-3 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:cursor-wait disabled:opacity-60 dark:border-amber-400/20 dark:text-amber-200 dark:hover:bg-amber-400/10"
+                      :disabled="reportingCommentId === comment.id"
+                      @click="submitCommentReport(comment)"
+                    >
+                      <Loader2 v-if="reportingCommentId === comment.id" class="h-3.5 w-3.5 animate-spin" />
+                      <AlertTriangle v-else class="h-3.5 w-3.5" />
+                      Report
+                    </button>
                     <button
                       v-for="action in commentModerationActions(comment)"
                       :key="action.status"

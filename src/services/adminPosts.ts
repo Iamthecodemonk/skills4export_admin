@@ -130,6 +130,19 @@ export type CommentStatusResponse = {
   data: PostComment
 }
 
+export type ReportPayload = {
+  reason: string
+  details?: string
+  type?: string
+  itemId?: string
+}
+
+export type ReportResponse = {
+  success: boolean
+  message?: string
+  data?: Record<string, unknown>
+}
+
 export async function listPosts(params: { page?: number; per_page?: number; is_report?: boolean | number; reported?: boolean | number } = {}) {
   const search = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
@@ -188,6 +201,28 @@ export async function deletePostComment(postId: string, commentId: string) {
   })
 }
 
+export async function reportPost(id: string, payload: ReportPayload) {
+  return apiRequest<ReportResponse>(`/api/posts/${id}/report`, {
+    method: 'POST',
+    body: JSON.stringify({
+      itemId: id,
+      type: 'post',
+      ...payload,
+    }),
+  })
+}
+
+export async function reportPostComment(id: string, payload: ReportPayload) {
+  return apiRequest<ReportResponse>(`/api/comments/${id}/report`, {
+    method: 'POST',
+    body: JSON.stringify({
+      itemId: id,
+      type: 'comment',
+      ...payload,
+    }),
+  })
+}
+
 export default {
   listPosts,
   createPost,
@@ -196,4 +231,6 @@ export default {
   listPostComments,
   updatePostCommentStatus,
   deletePostComment,
+  reportPost,
+  reportPostComment,
 }
