@@ -130,7 +130,7 @@ export type CommentStatusResponse = {
   data: PostComment
 }
 
-export async function listPosts(params: { page?: number; per_page?: number } = {}) {
+export async function listPosts(params: { page?: number; per_page?: number; is_report?: boolean | number; reported?: boolean | number } = {}) {
   const search = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && String(value) !== '') {

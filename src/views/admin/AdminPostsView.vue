@@ -40,6 +40,16 @@ type ModerationAction = {
   icon: typeof CheckCircle2
 }
 
+const props = withDefaults(defineProps<{
+  reportedOnly?: boolean
+  pageTitle?: string
+  pageDescription?: string
+}>(), {
+  reportedOnly: false,
+  pageTitle: 'Manage Posts',
+  pageDescription: 'Review post media, open full details, moderate posts, and manage comments.',
+})
+
 const posts = ref<Post[]>([])
 const search = ref('')
 const statusFilter = ref('')
@@ -88,7 +98,9 @@ const filteredPosts = computed(() => {
   const term = search.value.trim().toLowerCase()
   const status = statusFilter.value
 
-  const searched = posts.value.filter((post) => {
+  const sourcePosts = props.reportedOnly ? posts.value.filter((post) => post.is_report) : posts.value
+
+  const searched = sourcePosts.filter((post) => {
     const matchesSearch = !term || `${post.title} ${post.content} ${post.user?.name || ''} ${post.user?.email || ''} ${post.community?.name || ''}`.toLowerCase().includes(term)
     const matchesStatus = !status || postStatus(post) === status
 
@@ -292,9 +304,10 @@ async function fetchPosts() {
     const response = await listPosts({
       page: page.value,
       per_page: perPage.value,
+      ...(props.reportedOnly ? { is_report: 1, reported: 1 } : {}),
     })
 
-    posts.value = response.data || []
+    posts.value = props.reportedOnly ? (response.data || []).filter((post) => post.is_report) : response.data || []
     total.value = response.total || 0
     lastPage.value = response.last_page || 1
     perPage.value = response.per_page || perPage.value
@@ -427,9 +440,9 @@ onMounted(() => {
     <section class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
       <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">Posts</p>
-          <h1 class="mt-2 font-display text-xl font-semibold text-[var(--text-primary)]">Manage Posts</h1>
-          <p class="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">Review post media, open full details, moderate posts, and manage comments.</p>
+          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">{{ reportedOnly ? 'Reports' : 'Posts' }}</p>
+          <h1 class="mt-2 font-display text-xl font-semibold text-[var(--text-primary)]">{{ pageTitle }}</h1>
+          <p class="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">{{ pageDescription }}</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -449,7 +462,7 @@ onMounted(() => {
       <div class="flex flex-col gap-3 border-b border-[color:var(--border-soft)] p-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 class="font-display text-base font-semibold text-[var(--text-primary)]">Posts</h2>
-          <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ from || 0 }}-{{ to || 0 }} of {{ total }} posts</p>
+          <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ from || 0 }}-{{ to || 0 }} of {{ total }} {{ reportedOnly ? 'reported posts' : 'posts' }}</p>
         </div>
         <div class="grid gap-2 md:w-[42rem] md:grid-cols-[1fr_12rem_12rem]">
           <label class="flex h-10 items-center gap-2 rounded-[0.85rem] bg-[var(--search-bg)] px-3 text-[var(--text-tertiary)]">
@@ -475,7 +488,7 @@ onMounted(() => {
       <div v-else-if="filteredPosts.length === 0" class="flex min-h-64 items-center justify-center p-4 text-center">
         <div>
           <p class="font-semibold text-[var(--text-primary)]">No posts found</p>
-          <p class="mt-1 text-sm text-[var(--text-secondary)]">Adjust your search or refresh the list.</p>
+          <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ reportedOnly ? 'No reported posts are loaded.' : 'Adjust your search or refresh the list.' }}</p>
         </div>
       </div>
 

@@ -53,6 +53,16 @@ const router = createRouter({
       meta: { layout: 'app', requiresAuth: true },
     },
     {
+      path: '/admin/reported-posts',
+      name: 'Reported posts',
+      component: () => import('../views/admin/AdminPostsView.vue'),
+      props: {
+        reportedOnly: true,
+        pageTitle: 'Reported Posts',
+        pageDescription: 'Review only posts that have been reported, inspect the full details, and moderate the content.',
+      },
+    },
+    {
       path: '/admin/questions',
       name: 'Manage questions',
       component: AdminQuestionsView,

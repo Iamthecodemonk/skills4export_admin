@@ -39,6 +39,7 @@ const adminLinks = [
   { label: 'Manage freelancers', to: '/admin/freelancers', icon: UserRoundCheck },
   { label: 'Manage questions', to: '/admin/questions', icon: CircleHelp },
   { label: 'Manage posts', to: '/admin/posts', icon: MessageSquareText },
+  { label: 'Reported posts', to: '/admin/reported-posts', icon: MessageSquareText },
   { label: 'Manage adverts', to: '/admin/adverts', icon: Megaphone },
   { label: 'Manage contest', to: '/admin/contest', icon: Trophy },
   { label: 'Manage admin users', to: '/admin/admin-users', icon: ShieldCheck },
