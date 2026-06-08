@@ -36,7 +36,7 @@ const jobsOpen = ref(route.path.startsWith('/admin/jobs') || route.path.startsWi
 const questionsOpen = ref(route.path.startsWith('/admin/questions') || route.path.startsWith('/admin/reported-questions'))
 const answersOpen = ref(route.path.startsWith('/admin/reported-answers'))
 const commentsOpen = ref(route.path.startsWith('/admin/reported-comments'))
-const pagesOpen = ref(route.path.startsWith('/admin/page'))
+const pagesOpen = ref(route.path.startsWith('/admin/page') || route.path.startsWith('/admin/reported-pages'))
 
 const adminLinks = [
   { label: 'HOME', to: '/admin', icon: LayoutDashboard },
@@ -77,6 +77,7 @@ const commentLinks = [
 const pageLinks = [
   { label: 'Page categories', to: '/admin/page-categories' },
   { label: 'Manage pages', to: '/admin/pages' },
+  { label: 'Reported pages', to: '/admin/reported-pages' },
 ]
 
 const communitiesActive = computed(() => {
@@ -211,7 +212,7 @@ async function handleLogout() {
               :aria-expanded="answersOpen"
               @click="answersOpen = !answersOpen"
             >
-              <MessageCircle class="h-4 w-4 shrink-0" />
+              <ClipboardCheck class="h-4 w-4 shrink-0" />
               <span class="min-w-0 flex-1 truncate">Answers</span>
               <ChevronDown class="ml-auto h-4 w-4 transition-transform" :class="answersOpen ? 'rotate-180' : ''" />
             </button>
@@ -237,7 +238,7 @@ async function handleLogout() {
               :aria-expanded="commentsOpen"
               @click="commentsOpen = !commentsOpen"
             >
-              <ClipboardCheck class="h-4 w-4 shrink-0" />
+              <MessageCircle class="h-4 w-4 shrink-0" />
               <span class="min-w-0 flex-1 truncate">Comments</span>
               <ChevronDown class="ml-auto h-4 w-4 transition-transform" :class="commentsOpen ? 'rotate-180' : ''" />
             </button>

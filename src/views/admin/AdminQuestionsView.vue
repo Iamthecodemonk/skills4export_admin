@@ -80,6 +80,7 @@ const error = ref<string | null>(null)
 const formError = ref<string | null>(null)
 const showCreateForm = ref(false)
 const viewingQuestion = ref<Question | null>(null)
+const reportingQuestionId = ref<string | null>(null)
 
 const title = ref('')
 const body = ref('')
@@ -130,6 +131,27 @@ const questionStats = computed(() => [
     icon: Lock,
   },
 ])
+
+async function reportQuestion(question: Question) {
+  reportingQuestionId.value = question.id
+
+  try {
+    await apiRequest(`/api/questions/${question.id}/report`, {
+      method: 'POST',
+      body: JSON.stringify({
+        itemId: question.id,
+        type: 'question',
+        reason: 'Admin report',
+        details: 'Flagged by an admin from the questions management view.',
+      }),
+    })
+    toast.success('Question reported')
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Unable to report question')
+  } finally {
+    reportingQuestionId.value = null
+  }
+}
 
 function formatDate(value: string) {
   if (!value) {
@@ -594,13 +616,18 @@ onMounted(() => {
           </div>
         </div>
 
-        <RouterLink
-          :to="`/admin/questions/${viewingQuestion.id}/answers`"
-          class="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]"
-        >
-          <MessageSquareText class="h-4 w-4" />
-          Manage answers
-        </RouterLink>
+        <div class="mt-5 flex flex-wrap gap-2">
+          <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] border border-amber-200 px-3 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-60 dark:border-amber-400/20 dark:text-amber-200 dark:hover:bg-amber-400/10" :disabled="reportingQuestionId === viewingQuestion.id" @click="reportQuestion(viewingQuestion)">
+            {{ reportingQuestionId === viewingQuestion.id ? 'Reporting...' : 'Report question' }}
+          </button>
+          <RouterLink
+            :to="`/admin/questions/${viewingQuestion.id}/answers`"
+            class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]"
+          >
+            <MessageSquareText class="h-4 w-4" />
+            Manage answers
+          </RouterLink>
+        </div>
       </section>
     </div>
   </div>

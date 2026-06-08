@@ -15,6 +15,7 @@ import {
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
+import { apiRequest } from '../../composables/useApi'
 import {
   createJob,
   listFreelanceJobs,
@@ -117,6 +118,7 @@ const showCreateForm = ref(false)
 const viewingJob = ref<Job | null>(null)
 const viewingFreelanceJob = ref<FreelanceJob | null>(null)
 const updatingStatusId = ref<string | null>(null)
+const reportingJobId = ref<string | null>(null)
 const actionMenuId = ref<string | null>(null)
 
 const feedTabs: Array<{ label: string; value: JobFeedTab }> = [
@@ -535,6 +537,27 @@ function freelanceJobActions(job: FreelanceJob): Array<{ label: string, status: 
   ]
 
   return actions.filter((action) => action.status !== job.status)
+}
+
+async function reportJob(job: Job | FreelanceJob, kind: 'job' | 'freelance_job' = 'job') {
+  reportingJobId.value = job.id
+
+  try {
+    await apiRequest(`/api/jobs/${job.id}/report`, {
+      method: 'POST',
+      body: JSON.stringify({
+        itemId: job.id,
+        type: kind,
+        reason: 'Admin report',
+        details: 'Flagged by an admin from the jobs management view.',
+      }),
+    })
+    toast.success('Job reported')
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Unable to report job')
+  } finally {
+    reportingJobId.value = null
+  }
 }
 
 function resetCreateForm() {
@@ -985,6 +1008,9 @@ onMounted(() => {
           <StatusChip :tone="statusTone(viewingJob.status)">{{ formatLabel(viewingJob.status) }}</StatusChip>
           <StatusChip tone="accent">{{ formatLabel(viewingJob.type) }}</StatusChip>
           <StatusChip tone="muted">{{ formatLabel(viewingJob.workMode) }}</StatusChip>
+          <button type="button" class="h-9 rounded-[0.75rem] border border-amber-200 px-3 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-60 dark:border-amber-400/20 dark:text-amber-200 dark:hover:bg-amber-400/10" :disabled="reportingJobId === viewingJob.id" @click="reportJob(viewingJob)">
+            {{ reportingJobId === viewingJob.id ? 'Reporting...' : 'Report' }}
+          </button>
           <button v-for="action in regularJobActions(viewingJob)" :key="action.status" type="button" class="h-9 rounded-[0.75rem] border border-[color:var(--border-soft)] px-3 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)] disabled:opacity-60" :class="action.tone === 'danger' ? 'text-red-600 hover:text-red-700 dark:text-red-300' : ''" :disabled="updatingStatusId === viewingJob.id" @click="changeJobStatus(viewingJob, action.status)">
             {{ action.label }}
           </button>
@@ -1053,6 +1079,9 @@ onMounted(() => {
           <StatusChip :tone="statusTone(viewingFreelanceJob.status)">{{ formatLabel(viewingFreelanceJob.status) }}</StatusChip>
           <StatusChip tone="accent">{{ formatLabel(viewingFreelanceJob.type) }}</StatusChip>
           <StatusChip :tone="viewingFreelanceJob.verified ? 'success' : 'muted'">{{ viewingFreelanceJob.verified ? 'Verified' : 'Unverified' }}</StatusChip>
+          <button type="button" class="h-9 rounded-[0.75rem] border border-amber-200 px-3 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-60 dark:border-amber-400/20 dark:text-amber-200 dark:hover:bg-amber-400/10" :disabled="reportingJobId === viewingFreelanceJob.id" @click="reportJob(viewingFreelanceJob, 'freelance_job')">
+            {{ reportingJobId === viewingFreelanceJob.id ? 'Reporting...' : 'Report' }}
+          </button>
           <button v-for="action in freelanceJobActions(viewingFreelanceJob)" :key="action.status" type="button" class="h-9 rounded-[0.75rem] border border-[color:var(--border-soft)] px-3 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)] disabled:opacity-60" :class="action.tone === 'danger' ? 'text-red-600 hover:text-red-700 dark:text-red-300' : ''" :disabled="updatingStatusId === viewingFreelanceJob.id" @click="changeFreelanceJobStatus(viewingFreelanceJob, action.status)">
             {{ action.label }}
           </button>

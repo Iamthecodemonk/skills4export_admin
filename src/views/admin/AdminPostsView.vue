@@ -384,6 +384,41 @@ async function removePost(post: Post) {
 }
 
 async function changePostStatus(post: Post, nextStatus: string) {
+  if (props.reportedOnly) {
+    const action = nextStatus === 'approved'
+      ? 'approve'
+      : nextStatus === 'suspended'
+        ? 'suspend'
+        : nextStatus === 'deleted'
+          ? 'delete'
+          : 'unsuspend'
+
+    updatingPostId.value = post.id
+
+    try {
+      await apiRequest(`/api/admin/reports/posts/${post.id}/${action}`, {
+        method: 'POST',
+      })
+
+      if (nextStatus === 'deleted') {
+        posts.value = posts.value.filter((item) => item.id !== post.id)
+        total.value = Math.max(total.value - 1, 0)
+        if (viewingPost.value?.id === post.id) viewingPost.value = null
+      } else {
+        const updatedPost = { ...post, status: nextStatus }
+        posts.value = posts.value.map((item) => item.id === post.id ? updatedPost : item)
+        if (viewingPost.value?.id === post.id) viewingPost.value = updatedPost
+      }
+
+      toast.success(`Post moved to ${formatLabel(nextStatus)}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Unable to moderate reported post')
+    } finally {
+      updatingPostId.value = null
+    }
+    return
+  }
+
   if (nextStatus === 'deleted') {
     await removePost(post)
     return

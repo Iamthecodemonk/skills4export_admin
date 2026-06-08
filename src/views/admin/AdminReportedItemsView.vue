@@ -5,7 +5,7 @@ import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
 import { apiRequest } from '../../composables/useApi'
 
-type ReportedKind = 'posts' | 'jobs' | 'questions' | 'answers' | 'comments'
+type ReportedKind = 'posts' | 'jobs' | 'questions' | 'answers' | 'comments' | 'pages'
 type ReportedItem = {
   id: string
   title?: string | null
@@ -109,12 +109,28 @@ function candidateListPaths() {
   ]
 }
 
-function candidateStatusPaths(id: string) {
-  return [
-    `/api/admin/${props.kind}/${id}/status`,
-    `/api/${props.kind}/${id}/status`,
-    `/api/reported/${props.kind}/${id}/status`,
-  ]
+function reportType() {
+  return props.kind
+}
+
+function reportActionPath(id: string, action: 'approve' | 'suspend' | 'unsuspend' | 'delete') {
+  return `/api/admin/reports/${reportType()}/${id}/${action}`
+}
+
+function targetStatus(item: ReportedItem) {
+  const target = reportTarget(item)
+  return target.status || item.status || 'reported'
+}
+
+function isSuspended(item: ReportedItem) {
+  return targetStatus(item) === 'suspended'
+}
+
+function nextLocalStatus(action: 'approve' | 'suspend' | 'unsuspend' | 'delete') {
+  if (action === 'approve') return 'approved'
+  if (action === 'suspend') return 'suspended'
+  if (action === 'unsuspend') return 'active'
+  return 'deleted'
 }
 
 async function fetchReportedItems() {
@@ -145,28 +161,15 @@ async function fetchReportedItems() {
   }
 }
 
-async function updateItemStatus(item: ReportedItem, status: string) {
+async function moderateItem(item: ReportedItem, action: 'approve' | 'suspend' | 'unsuspend' | 'delete') {
   const target = reportTarget(item)
   updatingId.value = target.id || item.id
 
   try {
-    let updated = false
-    let lastError: unknown = null
-
-    for (const path of candidateStatusPaths(target.id || item.id)) {
-      try {
-        await apiRequest(path, {
-          method: status === 'deleted' ? 'DELETE' : 'PATCH',
-          body: status === 'deleted' ? undefined : JSON.stringify({ status }),
-        })
-        updated = true
-        break
-      } catch (err) {
-        lastError = err
-      }
-    }
-
-    if (!updated) throw lastError instanceof Error ? lastError : new Error('Unable to update report')
+    const status = nextLocalStatus(action)
+    await apiRequest(reportActionPath(target.id || item.id, action), {
+      method: 'POST',
+    })
 
     if (status === 'deleted') {
       items.value = items.value.filter((entry) => (reportTarget(entry).id || entry.id) !== (target.id || item.id))
@@ -182,7 +185,7 @@ async function updateItemStatus(item: ReportedItem, status: string) {
 
     toast.success(`${formatKind(props.kind)} moved to ${formatKind(status)}`)
   } catch (err) {
-    toast.error(err instanceof Error ? err.message : 'Unable to update report')
+    toast.error(err instanceof Error ? err.message : 'Unable to moderate report')
   } finally {
     updatingId.value = null
   }
@@ -245,25 +248,25 @@ onMounted(() => {
               <h3 class="line-clamp-2 font-display text-sm font-semibold text-[var(--text-primary)]">{{ itemTitle(item) }}</h3>
               <p class="mt-1 truncate text-xs text-[var(--text-secondary)]">{{ itemAuthor(item) }}</p>
             </div>
-            <StatusChip :tone="statusTone(reportTarget(item).status || item.status || 'reported')">{{ formatKind(reportTarget(item).status || item.status || 'reported') }}</StatusChip>
+            <StatusChip :tone="statusTone(targetStatus(item))">{{ formatKind(targetStatus(item)) }}</StatusChip>
           </div>
           <p class="mt-3 line-clamp-3 text-sm leading-6 text-[var(--text-secondary)]">{{ itemBody(item) }}</p>
           <p class="mt-3 text-xs text-[var(--text-tertiary)]">{{ formatDate(createdAt(item)) }} / {{ item.reports_count || item.reports?.length || 1 }} reports</p>
 
-          <div class="mt-4 grid grid-cols-2 gap-2">
-            <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 disabled:opacity-60" :disabled="updatingId === (reportTarget(item).id || item.id)" @click="updateItemStatus(item, 'approved')">
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 disabled:opacity-60" :disabled="updatingId === (reportTarget(item).id || item.id)" @click="moderateItem(item, 'approve')">
               <CheckCircle2 class="h-3.5 w-3.5" />
               Approve
             </button>
-            <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-amber-200 px-3 text-xs font-semibold text-amber-700 disabled:opacity-60" :disabled="updatingId === (reportTarget(item).id || item.id)" @click="updateItemStatus(item, 'suspended')">
+            <button v-if="!isSuspended(item)" type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-amber-200 px-3 text-xs font-semibold text-amber-700 disabled:opacity-60" :disabled="updatingId === (reportTarget(item).id || item.id)" @click="moderateItem(item, 'suspend')">
               <ShieldCheck class="h-3.5 w-3.5" />
               Suspend
             </button>
-            <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 disabled:opacity-60" :disabled="updatingId === (reportTarget(item).id || item.id)" @click="updateItemStatus(item, 'active')">
+            <button v-else type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 disabled:opacity-60" :disabled="updatingId === (reportTarget(item).id || item.id)" @click="moderateItem(item, 'unsuspend')">
               <ShieldCheck class="h-3.5 w-3.5" />
               Unsuspend
             </button>
-            <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-red-200 px-3 text-xs font-semibold text-red-700 disabled:opacity-60" :disabled="updatingId === (reportTarget(item).id || item.id)" @click="updateItemStatus(item, 'deleted')">
+            <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-red-200 px-3 text-xs font-semibold text-red-700 disabled:opacity-60" :disabled="updatingId === (reportTarget(item).id || item.id)" @click="moderateItem(item, 'delete')">
               <Trash2 class="h-3.5 w-3.5" />
               Delete
             </button>

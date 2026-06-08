@@ -85,6 +85,7 @@ const viewingPage = ref<Page | null>(null)
 const uploadingAvatarId = ref<string | null>(null)
 const uploadingCoverId = ref<string | null>(null)
 const approvingPageId = ref<string | null>(null)
+const reportingPageId = ref<string | null>(null)
 
 const name = ref('')
 const slug = ref('')
@@ -295,6 +296,27 @@ async function approvePage(pageItem: Page) {
     toast.error(err instanceof Error ? err.message : 'Unable to approve page')
   } finally {
     approvingPageId.value = null
+  }
+}
+
+async function reportPage(pageItem: Page) {
+  reportingPageId.value = pageItem.id
+
+  try {
+    await apiRequest(`/api/pages/${pageItem.id}/report`, {
+      method: 'POST',
+      body: JSON.stringify({
+        itemId: pageItem.id,
+        type: 'page',
+        reason: 'Admin report',
+        details: 'Flagged by an admin from the pages management view.',
+      }),
+    })
+    toast.success('Page reported')
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Unable to report page')
+  } finally {
+    reportingPageId.value = null
   }
 }
 
@@ -626,6 +648,9 @@ onMounted(() => {
               <span class="text-sm text-[var(--text-secondary)]">Approved</span>
               <StatusChip :tone="viewingPage.isApproved ? 'success' : 'warning'">{{ viewingPage.isApproved ? 'Yes' : 'No' }}</StatusChip>
             </div>
+            <button type="button" class="inline-flex h-9 w-full items-center justify-center rounded-[0.75rem] border border-amber-200 px-3 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-60 dark:border-amber-400/20 dark:text-amber-200 dark:hover:bg-amber-400/10" :disabled="reportingPageId === viewingPage.id" @click="reportPage(viewingPage)">
+              {{ reportingPageId === viewingPage.id ? 'Reporting...' : 'Report page' }}
+            </button>
           </div>
         </div>
 

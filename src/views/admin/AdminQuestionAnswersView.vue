@@ -4,6 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { ArrowLeft, Loader2, MessageSquarePlus, RefreshCw, Send } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
+import { apiRequest } from '../../composables/useApi'
 import { createAnswer, listAnswers, listQuestions, type Answer, type Question } from '../../services'
 
 const route = useRoute()
@@ -23,6 +24,7 @@ const error = ref<string | null>(null)
 const formError = ref<string | null>(null)
 const content = ref('')
 const parentAnswerId = ref('')
+const reportingAnswerId = ref<string | null>(null)
 
 function formatDate(value?: string | null) {
   if (!value) {
@@ -104,6 +106,27 @@ async function createNewAnswer() {
     formError.value = err instanceof Error ? err.message : 'Unable to create answer'
   } finally {
     creating.value = false
+  }
+}
+
+async function reportAnswer(answer: Answer) {
+  reportingAnswerId.value = answer.id
+
+  try {
+    await apiRequest(`/api/answers/${answer.id}/report`, {
+      method: 'POST',
+      body: JSON.stringify({
+        itemId: answer.id,
+        type: 'answer',
+        reason: 'Admin report',
+        details: 'Flagged by an admin from the answers management view.',
+      }),
+    })
+    toast.success('Answer reported')
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Unable to report answer')
+  } finally {
+    reportingAnswerId.value = null
   }
 }
 
@@ -208,6 +231,9 @@ onMounted(() => {
             <div class="flex flex-wrap gap-2">
               <StatusChip v-if="answer.parentAnswerId" tone="accent">Reply</StatusChip>
               <StatusChip tone="muted">{{ formatDate(answer.createdAt) }}</StatusChip>
+              <button type="button" class="inline-flex h-8 items-center justify-center rounded-[0.7rem] border border-amber-200 px-2.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-60 dark:border-amber-400/20 dark:text-amber-200 dark:hover:bg-amber-400/10" :disabled="reportingAnswerId === answer.id" @click="reportAnswer(answer)">
+                {{ reportingAnswerId === answer.id ? 'Reporting...' : 'Report' }}
+              </button>
             </div>
           </div>
           <p class="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-secondary)]">{{ answer.content }}</p>
