@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Search, ShieldCheck, Trash2 } from 'lucide-vue-next'
+import { AlertTriangle, CheckCircle2, Eye, Loader2, RefreshCw, Search, ShieldCheck, Trash2, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
 import { apiRequest } from '../../composables/useApi'
@@ -49,6 +49,7 @@ const query = ref('')
 const loading = ref(false)
 const error = ref<string | null>(null)
 const updatingId = ref<string | null>(null)
+const viewingItem = ref<ReportedItem | null>(null)
 
 const filteredItems = computed(() => {
   const term = query.value.trim().toLowerCase()
@@ -173,6 +174,9 @@ async function moderateItem(item: ReportedItem, action: 'approve' | 'suspend' | 
 
     if (status === 'deleted') {
       items.value = items.value.filter((entry) => (reportTarget(entry).id || entry.id) !== (target.id || item.id))
+      if (viewingItem.value && (reportTarget(viewingItem.value).id || viewingItem.value.id) === (target.id || item.id)) {
+        viewingItem.value = null
+      }
     } else {
       items.value = items.value.map((entry) => {
         const entryTarget = reportTarget(entry)
@@ -189,6 +193,14 @@ async function moderateItem(item: ReportedItem, action: 'approve' | 'suspend' | 
   } finally {
     updatingId.value = null
   }
+}
+
+function itemKey(item: ReportedItem) {
+  return reportTarget(item).id || item.id
+}
+
+function reportCount(item: ReportedItem) {
+  return item.reports_count || item.reports?.length || 1
 }
 
 watch(() => props.kind, fetchReportedItems)
@@ -251,9 +263,13 @@ onMounted(() => {
             <StatusChip :tone="statusTone(targetStatus(item))">{{ formatKind(targetStatus(item)) }}</StatusChip>
           </div>
           <p class="mt-3 line-clamp-3 text-sm leading-6 text-[var(--text-secondary)]">{{ itemBody(item) }}</p>
-          <p class="mt-3 text-xs text-[var(--text-tertiary)]">{{ formatDate(createdAt(item)) }} / {{ item.reports_count || item.reports?.length || 1 }} reports</p>
+          <p class="mt-3 text-xs text-[var(--text-tertiary)]">{{ formatDate(createdAt(item)) }} / {{ reportCount(item) }} reports</p>
 
           <div class="mt-4 flex flex-wrap gap-2">
+            <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] bg-[var(--accent)] px-3 text-xs font-semibold text-white hover:bg-[var(--accent-strong)]" @click="viewingItem = item">
+              <Eye class="h-3.5 w-3.5" />
+              View details
+            </button>
             <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 disabled:opacity-60" :disabled="updatingId === (reportTarget(item).id || item.id)" @click="moderateItem(item, 'approve')">
               <CheckCircle2 class="h-3.5 w-3.5" />
               Approve
@@ -274,5 +290,58 @@ onMounted(() => {
         </article>
       </div>
     </section>
+
+    <div v-if="viewingItem" class="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-bg)] px-4 py-6" role="dialog" aria-modal="true" @click.self="viewingItem = null">
+      <section class="app-scroll max-h-[calc(100vh-3rem)] w-full max-w-3xl overflow-y-auto rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">Reported {{ formatKind(kind) }}</p>
+            <h2 class="mt-2 font-display text-xl font-semibold text-[var(--text-primary)]">{{ itemTitle(viewingItem) }}</h2>
+            <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ itemAuthor(viewingItem) }} / {{ formatDate(createdAt(viewingItem)) }}</p>
+          </div>
+          <button type="button" class="grid h-9 w-9 shrink-0 place-items-center rounded-[0.75rem] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]" title="Close details" @click="viewingItem = null">
+            <X class="h-4 w-4" />
+          </button>
+        </div>
+
+        <div class="mt-4 flex flex-wrap gap-2">
+          <StatusChip :tone="statusTone(targetStatus(viewingItem))">{{ formatKind(targetStatus(viewingItem)) }}</StatusChip>
+          <StatusChip tone="warning">{{ reportCount(viewingItem) }} reports</StatusChip>
+          <StatusChip tone="muted">{{ formatKind(kind) }}</StatusChip>
+        </div>
+
+        <div class="mt-5 rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3">
+          <p class="text-sm font-semibold text-[var(--text-primary)]">Details</p>
+          <p class="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-secondary)]">{{ itemBody(viewingItem) }}</p>
+        </div>
+
+        <div class="mt-4 rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3">
+          <p class="text-sm font-semibold text-[var(--text-primary)]">Actions</p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.8rem] border border-emerald-200 px-3 text-sm font-semibold text-emerald-700 disabled:opacity-60" :disabled="updatingId === itemKey(viewingItem)" @click="moderateItem(viewingItem, 'approve')">
+              <CheckCircle2 class="h-4 w-4" />
+              Approve
+            </button>
+            <button v-if="!isSuspended(viewingItem)" type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.8rem] border border-amber-200 px-3 text-sm font-semibold text-amber-700 disabled:opacity-60" :disabled="updatingId === itemKey(viewingItem)" @click="moderateItem(viewingItem, 'suspend')">
+              <ShieldCheck class="h-4 w-4" />
+              Suspend
+            </button>
+            <button v-else type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.8rem] border border-emerald-200 px-3 text-sm font-semibold text-emerald-700 disabled:opacity-60" :disabled="updatingId === itemKey(viewingItem)" @click="moderateItem(viewingItem, 'unsuspend')">
+              <ShieldCheck class="h-4 w-4" />
+              Unsuspend
+            </button>
+            <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.8rem] border border-red-200 px-3 text-sm font-semibold text-red-700 disabled:opacity-60" :disabled="updatingId === itemKey(viewingItem)" @click="moderateItem(viewingItem, 'delete')">
+              <Trash2 class="h-4 w-4" />
+              Delete
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3">
+          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">ID</p>
+          <p class="mt-2 break-all font-mono text-xs text-[var(--text-secondary)]">{{ itemKey(viewingItem) }}</p>
+        </div>
+      </section>
+    </div>
   </div>
 </template>

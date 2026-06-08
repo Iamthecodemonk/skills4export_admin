@@ -165,6 +165,10 @@ const selectedPostImage = computed(() => {
   return assets[Math.min(modalMediaIndex.value, assets.length - 1)]
 })
 
+const visiblePostTabs = computed(() => {
+  return props.reportedOnly ? postTabs.filter((tab) => tab.value !== 'report') : postTabs
+})
+
 function formatDate(value?: string | null) {
   if (!value) return 'Not available'
 
@@ -300,10 +304,14 @@ function postModerationActions(post: Post): ModerationAction[] {
   const current = postStatus(post)
   const actions: ModerationAction[] = [
     { label: 'Approve', status: 'approved', tone: 'success', icon: CheckCircle2 },
-    { label: 'Suspend', status: 'suspended', tone: 'warning', icon: Ban },
-    { label: 'Unsuspend', status: 'active', tone: 'success', icon: ShieldCheck },
     { label: 'Delete', status: 'deleted', tone: 'danger', icon: Trash2 },
   ]
+
+  if (current === 'suspended') {
+    actions.splice(1, 0, { label: 'Unsuspend', status: 'active', tone: 'success', icon: ShieldCheck })
+  } else {
+    actions.splice(1, 0, { label: 'Suspend', status: 'suspended', tone: 'warning', icon: Ban })
+  }
 
   return actions.filter((action) => action.status !== current)
 }
@@ -516,7 +524,7 @@ async function submitCommentReport(comment: PostComment) {
 
 function openPost(post: Post, tab: PostDetailTab = 'main') {
   viewingPost.value = post
-  activePostTab.value = tab
+  activePostTab.value = props.reportedOnly && tab === 'report' ? 'main' : tab
   modalMediaIndex.value = 0
   comments.value = []
   commentsError.value = null
@@ -658,7 +666,22 @@ onMounted(() => {
               </div>
               <button type="button" class="inline-flex h-8 items-center justify-center gap-1.5 rounded-[0.7rem] bg-[var(--accent)] px-2.5 text-xs font-semibold text-white hover:bg-[var(--accent-strong)]" @click="openPost(post)">
                 <Eye class="h-4 w-4" />
-                Read more
+                {{ reportedOnly ? 'View details' : 'Read more' }}
+              </button>
+            </div>
+
+            <div v-if="reportedOnly" class="mt-3 flex flex-wrap gap-2 border-t border-[color:var(--border-soft)] pt-3">
+              <button
+                v-for="action in postModerationActions(post)"
+                :key="action.status"
+                type="button"
+                class="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-[0.7rem] border px-2 text-xs font-semibold disabled:cursor-wait disabled:opacity-60"
+                :class="action.tone === 'danger' ? 'border-red-200 text-red-700 hover:bg-red-50 dark:border-red-400/20 dark:text-red-200 dark:hover:bg-red-400/10' : action.tone === 'success' ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-400/20 dark:text-emerald-200 dark:hover:bg-emerald-400/10' : 'border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-400/20 dark:text-amber-200 dark:hover:bg-amber-400/10'"
+                :disabled="updatingPostId === post.id || deletingId === post.id"
+                @click="changePostStatus(post, action.status)"
+              >
+                <component :is="action.icon" class="h-3.5 w-3.5" />
+                {{ action.label }}
               </button>
             </div>
           </div>
@@ -722,7 +745,7 @@ onMounted(() => {
 
           <div class="app-scroll mt-5 flex gap-2 overflow-x-auto border-b border-[color:var(--border-soft)] pb-2">
             <button
-              v-for="tab in postTabs"
+              v-for="tab in visiblePostTabs"
               :key="tab.value"
               type="button"
               class="inline-flex h-9 shrink-0 items-center gap-2 rounded-[0.75rem] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
