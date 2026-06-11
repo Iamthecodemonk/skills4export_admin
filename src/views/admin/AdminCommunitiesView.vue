@@ -4,6 +4,8 @@ import { Check, ChevronDown, Eye, FolderPlus, Loader2, Pencil, Plus, RefreshCw, 
 import { toast } from 'vue-sonner'
 import { apiRequest } from '../../composables/useApi'
 import StatusChip from '../../components/StatusChip.vue'
+// const getIconsFromJsonFile = await import('../../data/line-awesome.json')
+import getIconsFromJsonFile from '../../data/line-awesome.json'
 
 type CommunityCategory = {
   id: string
@@ -105,58 +107,7 @@ const editIconPickerOpen = ref(false)
 const iconSearch = ref('')
 const editIconSearch = ref('')
 
-const communityIconOptions = [
-  { label: 'Users', value: 'las la-users' },
-  { label: 'Chess', value: 'las la-chess' },
-  { label: 'Globe', value: 'las la-globe' },
-  { label: 'Africa', value: 'las la-globe-africa' },
-  { label: 'Briefcase', value: 'las la-briefcase' },
-  { label: 'Handshake', value: 'las la-handshake' },
-  { label: 'Comments', value: 'las la-comments' },
-  { label: 'Question', value: 'las la-question-circle' },
-  { label: 'Laptop code', value: 'las la-laptop-code' },
-  { label: 'Code', value: 'las la-code' },
-  { label: 'Store', value: 'las la-store' },
-  { label: 'Shopping bag', value: 'las la-shopping-bag' },
-  { label: 'Chart', value: 'las la-chart-line' },
-  { label: 'Coins', value: 'las la-coins' },
-  { label: 'Landmark', value: 'las la-landmark' },
-  { label: 'Balance', value: 'las la-balance-scale' },
-  { label: 'Gavel', value: 'las la-gavel' },
-  { label: 'Tools', value: 'las la-tools' },
-  { label: 'Cogs', value: 'las la-cogs' },
-  { label: 'Helping hands', value: 'las la-hands-helping' },
-  { label: 'Teacher', value: 'las la-chalkboard-teacher' },
-  { label: 'Graduation', value: 'las la-graduation-cap' },
-  { label: 'Book', value: 'las la-book' },
-  { label: 'Book open', value: 'las la-book-open' },
-  { label: 'Flask', value: 'las la-flask' },
-  { label: 'Microscope', value: 'las la-microscope' },
-  { label: 'Stethoscope', value: 'las la-stethoscope' },
-  { label: 'Hospital', value: 'las la-hospital' },
-  { label: 'Home', value: 'las la-home' },
-  { label: 'City', value: 'las la-city' },
-  { label: 'Map marker', value: 'las la-map-marker-alt' },
-  { label: 'Seedling', value: 'las la-seedling' },
-  { label: 'Leaf', value: 'las la-leaf' },
-  { label: 'Tractor', value: 'las la-tractor' },
-  { label: 'Ship', value: 'las la-ship' },
-  { label: 'Plane', value: 'las la-plane' },
-  { label: 'Truck', value: 'las la-truck' },
-  { label: 'Camera', value: 'las la-camera' },
-  { label: 'Video', value: 'las la-video' },
-  { label: 'Microphone', value: 'las la-microphone' },
-  { label: 'Music', value: 'las la-music' },
-  { label: 'Palette', value: 'las la-palette' }, 
-  { label: 'Paint brush', value: 'las la-paint-brush' },
-  { label: 'Pen nib', value: 'las la-pen-nib' },
-  { label: 'Futbol', value: 'las la-futbol' },
-  { label: 'Running', value: 'las la-running' },
-  { label: 'Heartbeat', value: 'las la-heartbeat' },
-  { label: 'Heart', value: 'las la-heart' },
-  { label: 'Star', value: 'las la-star' },
-  { label: 'Lightbulb', value: 'las la-lightbulb' },
-]
+const communityIconOptions = ref<any[]>([])
 
 const categoryById = computed(() => {
   return new Map(categories.value.map((category) => [String(category.id), category]))
@@ -193,14 +144,26 @@ function getPostVisibilityLabel(value?: string | null) {
 
 function filterIcons(value: string) {
   const term = value.trim().toLowerCase()
+  const options = communityIconOptions.value || []
 
   if (!term) {
-    return communityIconOptions
+    return options
   }
 
-  return communityIconOptions.filter((option) => {
+  return options.filter((option) => {
     return `${option.label} ${option.value}`.toLowerCase().includes(term)
   })
+}
+
+async function loadLineAwesomeIcons() {
+  try {
+    const loaded = (getIconsFromJsonFile && (getIconsFromJsonFile)) as Array<any>
+    if (Array.isArray(loaded) && loaded.length > 0) {
+      communityIconOptions.value = loaded
+    }
+  } catch (err) {
+    // keep defaults on error
+  }
 }
 
 function normalizeCommunityIcon(value: string | null | undefined) {
@@ -479,6 +442,8 @@ async function deleteCommunity() {
 }
 
 onMounted(() => {
+  // try loading a full Line Awesome JSON list, fall back to defaults
+  loadLineAwesomeIcons()
   fetchCategories()
   fetchCommunities()
 })

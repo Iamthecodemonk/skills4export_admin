@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { AtSign, Eye, FileText, Loader2, MapPin, Plus, RefreshCw, Search, ShieldCheck, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
-import { createUser, listUsers, type AdminUser, type LatestRecord, type UserDetailRecord } from '../../services'
+import { createUser, listUsers, type AdminUser, type LatestRecord, type UserDetailRecord, type UserSettings } from '../../services'
 
 const users = ref<AdminUser[]>([])
 const search = ref('')
@@ -19,7 +19,7 @@ const error = ref<string | null>(null)
 const formError = ref<string | null>(null)
 const showCreateForm = ref(false)
 const viewingUser = ref<AdminUser | null>(null)
-const activeUserTab = ref<'overview' | 'content' | 'work' | 'network' | 'latest'>('overview')
+const activeUserTab = ref<'overview' | 'content' | 'work' | 'network' | 'settings' | 'latest'>('overview')
 
 const email = ref('')
 const password = ref('')
@@ -106,7 +106,17 @@ const userTabs = [
   { label: 'Content', value: 'content' },
   { label: 'Work', value: 'work' },
   { label: 'Network', value: 'network' },
+  { label: 'Settings', value: 'settings' },
   { label: 'Latest', value: 'latest' },
+] as const
+
+const settingFields = [
+  { label: 'Feature announcements', key: 'featureAndAnnouncement' },
+  { label: 'Inbox', key: 'inbox' },
+  { label: 'Research', key: 'research' },
+  { label: 'Recommended', key: 'recommended' },
+  { label: 'Alerts', key: 'alerts' },
+  { label: 'Profile', key: 'profile' },
 ] as const
 
 function formatDate(value?: string | null) {
@@ -127,6 +137,38 @@ function roleTone(value: AdminUser['role']) {
 
 function displayName(user: AdminUser) {
   return user.profile?.username || user.email
+}
+
+function currentJobTitle(user: AdminUser) {
+  return user.profile?.currentJobTitle || user.profile?.current_job_title || 'Not listed'
+}
+
+function currentWorkspace(user: AdminUser) {
+  return user.profile?.currentWorkspace || user.profile?.current_workspace || 'Not listed'
+}
+
+function userSettings(user: AdminUser): UserSettings | null {
+  return user.profile?.settings || user.profile?.setting || user.settings || user.setting || null
+}
+
+function settingValue(user: AdminUser, key: keyof UserSettings) {
+  return userSettings(user)?.[key] ?? null
+}
+
+function settingLabel(value: boolean | null) {
+  if (value === null) {
+    return 'Not set'
+  }
+
+  return value ? 'Enabled' : 'Disabled'
+}
+
+function settingTone(value: boolean | null) {
+  if (value === null) {
+    return 'muted'
+  }
+
+  return value ? 'success' : 'danger'
 }
 
 function getLatestTitle(record: LatestRecord, fallback: string) {
@@ -243,7 +285,7 @@ onMounted(() => {
           <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">Users</p>
           <h1 class="mt-2 font-display text-xl font-semibold text-[var(--text-primary)]">Manage Users</h1>
           <p class="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">
-            Review platform members, aggregate activity counts, latest records, and create user or admin accounts.
+            Review platform members, aggregate activity counts, latest records, and profile settings.
           </p>
         </div>
 
@@ -509,6 +551,16 @@ onMounted(() => {
               <MapPin class="h-4 w-4" />
               {{ viewingUser.profile?.location || 'Not listed' }}
             </p>
+            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+              <div class="rounded-[0.75rem] bg-[var(--surface-primary)] p-3">
+                <p class="text-xs text-[var(--text-tertiary)]">Current job title</p>
+                <p class="mt-1 font-semibold text-[var(--text-primary)]">{{ currentJobTitle(viewingUser) }}</p>
+              </div>
+              <div class="rounded-[0.75rem] bg-[var(--surface-primary)] p-3">
+                <p class="text-xs text-[var(--text-tertiary)]">Current workspace</p>
+                <p class="mt-1 font-semibold text-[var(--text-primary)]">{{ currentWorkspace(viewingUser) }}</p>
+              </div>
+            </div>
           </div>
           <div class="grid gap-2 sm:grid-cols-3">
             <div class="rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3">
@@ -600,6 +652,21 @@ onMounted(() => {
             <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Following</p>
             <p class="mt-2 font-semibold text-[var(--text-primary)]">{{ viewingUser.stats.totalFollowers ?? viewingUser.stats.followers }} followers</p>
             <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ viewingUser.stats.following }} following</p>
+          </div>
+        </div>
+
+        <div v-else-if="activeUserTab === 'settings'" class="mt-5">
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div
+              v-for="field in settingFields"
+              :key="field.key"
+              class="flex items-center justify-between gap-3 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3"
+            >
+              <p class="text-sm font-semibold text-[var(--text-primary)]">{{ field.label }}</p>
+              <StatusChip :tone="settingTone(settingValue(viewingUser, field.key))">
+                {{ settingLabel(settingValue(viewingUser, field.key)) }}
+              </StatusChip>
+            </div>
           </div>
         </div>
 
