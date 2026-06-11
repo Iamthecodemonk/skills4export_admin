@@ -324,7 +324,7 @@ async function fetchRegularJobStatus(params: {
 }, jobStatus: JobStatus) {
   const requestParams = {
     ...params,
-    page: 1,
+    page: params.page,
     per_page: params.per_page,
     status: jobStatus,
     experience: experience.value,
@@ -354,7 +354,7 @@ async function fetchRegularJobsWithoutStatus(params: {
 }) {
   const requestParams = {
     ...params,
-    page: 1,
+    page: params.page,
     per_page: params.per_page,
     status: '',
     experience: experience.value,
@@ -384,7 +384,7 @@ async function fetchFreelanceJobStatus(params: {
 }, jobStatus: FreelanceJobStatus) {
   const requestParams = {
     ...params,
-    page: 1,
+    page: params.page,
     per_page: params.per_page,
     status: jobStatus,
     type: type.value as FreelanceJobType | '',
