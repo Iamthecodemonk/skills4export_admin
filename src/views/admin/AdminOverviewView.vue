@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { BriefcaseBusiness, CircleHelp, FileText, Loader2, RefreshCw, UserRoundCheck, Users } from 'lucide-vue-next'
 import StatusChip from '../../components/StatusChip.vue'
-import { listFreelancers, listJobs, listPosts, listQuestions, listUsers, type Post, type Question } from '../../services'
+import { listAdminJobs, listFreelancers, listPosts, listQuestions, listUsers, type Post, type Question } from '../../services'
 
 type DashboardStat = {
   label: string
@@ -86,7 +86,7 @@ async function fetchOverview() {
       listUsers({ page: 1, per_page: 1 }),
       listPosts({ page: 1, per_page: 5 }),
       listQuestions({ page: 1, per_page: 5 }),
-      listJobs({ page: 1, per_page: 1 }),
+      listAdminJobs({ page: 1, per_page: 1000, all: true }),
       listFreelancers({ page: 1, per_page: 1 }),
     ])
 

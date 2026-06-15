@@ -19,9 +19,8 @@ import { apiRequest } from '../../composables/useApi'
 import {
   createJob,
   listFreelanceJobs,
-  listJobs,
+  listAdminJobs,
   listMyFreelanceJobs,
-  listMyPostedJobs,
   updateFreelanceJobStatus,
   updateJobStatus,
   type FreelanceJob,
@@ -58,7 +57,6 @@ const statusOptions: Array<{ label: string; value: JobStatus | '' }> = [
   { label: 'Deleted', value: 'deleted' },
 ]
 
-const adminJobStatuses: JobStatus[] = ['pending_review', 'approved', 'active', 'live', 'draft', 'closed', 'archived', 'suspended', 'deleted']
 const adminFreelanceJobStatuses: FreelanceJobStatus[] = ['pending_review', 'approved', 'active', 'live', 'closed', 'archived', 'suspended', 'deleted']
 
 const typeOptions: Array<{ label: string; value: JobType | '' }> = [
@@ -266,9 +264,7 @@ async function fetchJobs() {
     }
 
     const response = activeFeedTab.value === 'regular'
-      ? status.value
-        ? await fetchRegularJobStatus(params, status.value)
-        : await fetchAllRegularJobStatuses(params)
+      ? await fetchAdminRegularJobs(params)
       : status.value
         ? await fetchFreelanceJobStatus(params, status.value as FreelanceJobStatus)
         : await fetchAllFreelanceJobStatuses(params)
@@ -312,37 +308,7 @@ function paginateMergedJobs<T extends { id: string, createdAt: string }>(items: 
   }
 }
 
-async function fetchRegularJobStatus(params: {
-  page: number
-  per_page: number
-  q: string
-  status: string
-  sort: string
-  location: string
-  type: string
-  skill: string
-}, jobStatus: JobStatus) {
-  const requestParams = {
-    ...params,
-    page: params.page,
-    per_page: params.per_page,
-    status: jobStatus,
-    experience: experience.value,
-    workMode: workMode.value,
-  }
-  const [publicResponse, postedResponse] = await Promise.all([
-    listJobs(requestParams),
-    listMyPostedJobs(requestParams),
-  ])
-  const merged = paginateMergedJobs([...(publicResponse.data || []), ...(postedResponse.data || [])], params.page, params.per_page)
-
-  return {
-    ...publicResponse,
-    ...merged,
-  }
-}
-
-async function fetchRegularJobsWithoutStatus(params: {
+async function fetchAdminRegularJobs(params: {
   page: number
   per_page: number
   q: string
@@ -354,20 +320,18 @@ async function fetchRegularJobsWithoutStatus(params: {
 }) {
   const requestParams = {
     ...params,
-    page: params.page,
-    per_page: params.per_page,
-    status: '',
+    page: 1,
+    per_page: 1000,
+    all: true,
+    status: status.value,
     experience: experience.value,
     workMode: workMode.value,
   }
-  const [publicResponse, postedResponse] = await Promise.all([
-    listJobs(requestParams),
-    listMyPostedJobs(requestParams),
-  ])
-  const merged = paginateMergedJobs([...(publicResponse.data || []), ...(postedResponse.data || [])], params.page, params.per_page)
+  const response = await listAdminJobs(requestParams)
+  const merged = paginateMergedJobs(response.data || [], params.page, params.per_page)
 
   return {
-    ...publicResponse,
+    ...response,
     ...merged,
   }
 }
@@ -397,29 +361,6 @@ async function fetchFreelanceJobStatus(params: {
 
   return {
     ...publicResponse,
-    ...merged,
-  }
-}
-
-async function fetchAllRegularJobStatuses(params: {
-  page: number
-  per_page: number
-  q: string
-  status: string
-  sort: string
-  location: string
-  type: string
-  skill: string
-}) {
-  const responses = await Promise.all([
-    fetchRegularJobsWithoutStatus(params),
-    ...adminJobStatuses.map((jobStatus) => fetchRegularJobStatus(params, jobStatus)),
-  ])
-  const data = responses.flatMap((response) => response.data || [])
-  const merged = paginateMergedJobs(data, params.page, params.per_page)
-
-  return {
-    ...responses[0],
     ...merged,
   }
 }
