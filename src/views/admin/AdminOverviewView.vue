@@ -86,7 +86,7 @@ async function fetchOverview() {
       listUsers({ page: 1, per_page: 1 }),
       listPosts({ page: 1, per_page: 5 }),
       listQuestions({ page: 1, per_page: 5 }),
-      listAdminJobs({ page: 1, per_page: 1000, all: true }),
+      listAdminJobs({ page: 1, per_page: 100, all: true }),
       listFreelancers({ page: 1, per_page: 1 }),
     ])
 

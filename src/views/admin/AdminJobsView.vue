@@ -321,7 +321,7 @@ async function fetchAdminRegularJobs(params: {
   const requestParams = {
     ...params,
     page: 1,
-    per_page: 1000,
+    per_page: 100,
     all: true,
     status: status.value,
     experience: experience.value,
