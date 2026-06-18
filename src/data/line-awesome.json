@@ -266,5 +266,17 @@
   { "label": "Window Minimize", "value": "las la-window-minimize" },
   { "label": "Window Restore", "value": "las la-window-restore" },
   { "label": "Window Close", "value": "las la-window-close" },
-  { "label": "Terminal", "value": "las la-terminal" }
+  { "label": "Terminal", "value": "las la-terminal" },
+  { "label": "Expand Arrows", "value": "las la-expand-arrows-alt" },
+  { "label": "Book Reader", "value": "las la-book-reader" },
+  { "label": "Robot", "value": "las la-robot" },
+  { "label": "Satellite Dish", "value": "las la-satellite-dish" },
+  { "label": "Address Book", "value": "las la-address-book" },
+  { "label": "User Secret", "value": "las la-user-secret" },
+  { "label": "Archway", "value": "las la-archway" },
+  { "label": "Skiing", "value": "las la-skiing" },
+  { "label": "Snowboarding", "value": "las la-snowboarding" },
+  { "label": "Bullseye", "value": "las la-bullseye" },
+  { "label": "Swimmer", "value": "las la-swimmer" },
+  { "label": "Universal Access", "value": "las la-universal-access" }
 ]
