@@ -8,6 +8,8 @@ import { apiRequest } from '../../composables/useApi'
 type ReportedKind = 'posts' | 'jobs' | 'questions' | 'answers' | 'comments' | 'pages'
 type ReportedItem = {
   id: string
+  targetId?: string
+  primaryReportId?: string
   title?: string | null
   name?: string | null
   content?: string | null
@@ -163,24 +165,24 @@ async function fetchReportedItems() {
 }
 
 async function moderateItem(item: ReportedItem, action: 'approve' | 'suspend' | 'unsuspend' | 'delete') {
-  const target = reportTarget(item)
-  updatingId.value = target.id || item.id
+  const id = itemKey(item)
+  updatingId.value = id
 
   try {
     const status = nextLocalStatus(action)
-    await apiRequest(reportActionPath(target.id || item.id, action), {
+    await apiRequest(reportActionPath(id, action), {
       method: 'POST',
     })
 
     if (status === 'deleted') {
-      items.value = items.value.filter((entry) => (reportTarget(entry).id || entry.id) !== (target.id || item.id))
-      if (viewingItem.value && (reportTarget(viewingItem.value).id || viewingItem.value.id) === (target.id || item.id)) {
+      items.value = items.value.filter((entry) => itemKey(entry) !== id)
+      if (viewingItem.value && itemKey(viewingItem.value) === id) {
         viewingItem.value = null
       }
     } else {
       items.value = items.value.map((entry) => {
         const entryTarget = reportTarget(entry)
-        if ((entryTarget.id || entry.id) !== (target.id || item.id)) return entry
+        if (itemKey(entry) !== id) return entry
         if (entry.target) return { ...entry, target: { ...entryTarget, status } }
         if (entry.data) return { ...entry, data: { ...entryTarget, status } }
         return { ...entry, status }
@@ -196,7 +198,7 @@ async function moderateItem(item: ReportedItem, action: 'approve' | 'suspend' | 
 }
 
 function itemKey(item: ReportedItem) {
-  return reportTarget(item).id || item.id
+  return item.targetId || reportTarget(item).id || item.id
 }
 
 function reportCount(item: ReportedItem) {
@@ -270,19 +272,19 @@ onMounted(() => {
               <Eye class="h-3.5 w-3.5" />
               View details
             </button>
-            <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 disabled:opacity-60" :disabled="updatingId === (reportTarget(item).id || item.id)" @click="moderateItem(item, 'approve')">
+            <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 disabled:opacity-60" :disabled="updatingId === itemKey(item)" @click="moderateItem(item, 'approve')">
               <CheckCircle2 class="h-3.5 w-3.5" />
               Approve
             </button>
-            <button v-if="!isSuspended(item)" type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-amber-200 px-3 text-xs font-semibold text-amber-700 disabled:opacity-60" :disabled="updatingId === (reportTarget(item).id || item.id)" @click="moderateItem(item, 'suspend')">
+            <button v-if="!isSuspended(item)" type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-amber-200 px-3 text-xs font-semibold text-amber-700 disabled:opacity-60" :disabled="updatingId === itemKey(item)" @click="moderateItem(item, 'suspend')">
               <ShieldCheck class="h-3.5 w-3.5" />
               Suspend
             </button>
-            <button v-else type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 disabled:opacity-60" :disabled="updatingId === (reportTarget(item).id || item.id)" @click="moderateItem(item, 'unsuspend')">
+            <button v-else type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 disabled:opacity-60" :disabled="updatingId === itemKey(item)" @click="moderateItem(item, 'unsuspend')">
               <ShieldCheck class="h-3.5 w-3.5" />
               Unsuspend
             </button>
-            <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-red-200 px-3 text-xs font-semibold text-red-700 disabled:opacity-60" :disabled="updatingId === (reportTarget(item).id || item.id)" @click="moderateItem(item, 'delete')">
+            <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-[0.75rem] border border-red-200 px-3 text-xs font-semibold text-red-700 disabled:opacity-60" :disabled="updatingId === itemKey(item)" @click="moderateItem(item, 'delete')">
               <Trash2 class="h-3.5 w-3.5" />
               Delete
             </button>

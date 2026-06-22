@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import {
   AlertTriangle,
   Ban,
@@ -46,6 +46,8 @@ type ModerationAction = {
 
 type ReportedPostWrapper = {
   id: string
+  targetId?: string
+  primaryReportId?: string
   target?: Post
   data?: Post
   reports_count?: number
@@ -340,9 +342,16 @@ async function fetchPosts() {
       })
       const response = await apiRequest<ReportedPostsResponse>(`/api/admin/reports/posts?${search.toString()}`)
       posts.value = (response.data || [])
-        .map((item) => item.target || item.data)
+        .map((item) => {
+          const post = item.target || item.data
+          if (!post) return null
+          return {
+            ...post,
+            id: item.targetId || post.id || item.id,
+            is_report: true,
+          }
+        })
         .filter((post): post is Post => Boolean(post))
-        .map((post) => ({ ...post, is_report: true }))
       total.value = response.total || posts.value.length
       lastPage.value = response.last_page || 1
       perPage.value = response.per_page || perPage.value
@@ -550,6 +559,15 @@ function closePost() {
 }
 
 onMounted(() => {
+  fetchPosts()
+})
+
+watch(() => props.reportedOnly, () => {
+  page.value = 1
+  search.value = ''
+  statusFilter.value = ''
+  viewingPost.value = null
+  activePostTab.value = 'main'
   fetchPosts()
 })
 </script>

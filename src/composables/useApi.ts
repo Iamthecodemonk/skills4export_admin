@@ -65,6 +65,15 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   const body = await response.json().catch(() => ({}))
 
   if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem('admin-token')
+      localStorage.removeItem('admin-user')
+
+      if (window.location.pathname !== '/auth/login') {
+        window.location.assign('/auth/login')
+      }
+    }
+
     throw new Error(getApiErrorMessage(body))
   }
 
