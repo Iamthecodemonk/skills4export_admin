@@ -44,6 +44,7 @@ export type Post = {
   is_saved: boolean
   is_report: boolean
   status?: string | null
+  moderation_status?: string | null
   type: string
   user: PostUser
   community: PostCommunity | null
@@ -155,6 +156,18 @@ export async function listPosts(params: { page?: number; per_page?: number; is_r
   return apiRequest<ListPostsResponse>(path)
 }
 
+export async function listAdminPosts(params: { page?: number; per_page?: number; status?: string } = {}) {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value) !== '') {
+      search.set(key, String(value))
+    }
+  })
+
+  const path = `/api/admin/posts${search.toString() ? `?${search.toString()}` : ''}`
+  return apiRequest<ListPostsResponse>(path)
+}
+
 export async function createPost(payload: CreatePostPayload) {
   return apiRequest<CreatePostResponse>('/api/posts', {
     method: 'POST',
@@ -225,6 +238,7 @@ export async function reportPostComment(id: string, payload: ReportPayload) {
 
 export default {
   listPosts,
+  listAdminPosts,
   createPost,
   deletePost,
   updatePostStatus,

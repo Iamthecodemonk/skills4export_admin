@@ -25,8 +25,8 @@ import { apiRequest } from '../../composables/useApi'
 import {
   deletePost,
   deletePostComment,
+  listAdminPosts,
   listPostComments,
-  listPosts,
   reportPost,
   reportPostComment,
   updatePostCommentStatus,
@@ -48,6 +48,8 @@ type ReportedPostWrapper = {
   id: string
   targetId?: string
   primaryReportId?: string
+  moderation_status?: string | null
+  status?: string | null
   target?: Post
   data?: Post
   reports_count?: number
@@ -165,6 +167,8 @@ function reportedPostFromWrapper(item: ReportedPostWrapper): Post | null {
   return {
     ...post,
     id: item.targetId || post.id || item.id,
+    status: item.moderation_status || item.status || post.moderation_status || post.status,
+    moderation_status: item.moderation_status || item.status || post.moderation_status || post.status,
     is_report: true,
   }
 }
@@ -321,6 +325,7 @@ function setMediaIndex(post: Post, nextIndex: number) {
 }
 
 function postStatus(post: Post) {
+  if (post.moderation_status) return post.moderation_status
   if (post.status) return post.status
   if (post.is_report) return 'reported'
   return post.type || 'active'
@@ -379,9 +384,10 @@ async function fetchPosts() {
     }
 
     const [response, reportedRows] = await Promise.all([
-      listPosts({
+      listAdminPosts({
       page: page.value,
       per_page: perPage.value,
+      status: 'approved,pending_review,active,suspended,deleted',
       }),
       fetchReportedPostRows().catch(() => []),
     ])
@@ -454,7 +460,7 @@ async function changePostStatus(post: Post, nextStatus: string) {
         total.value = Math.max(total.value - 1, 0)
         if (viewingPost.value?.id === post.id) viewingPost.value = null
       } else {
-        const updatedPost = { ...post, status: nextStatus }
+        const updatedPost = { ...post, status: nextStatus, moderation_status: nextStatus }
         posts.value = posts.value.map((item) => item.id === post.id ? updatedPost : item)
         if (viewingPost.value?.id === post.id) viewingPost.value = updatedPost
       }

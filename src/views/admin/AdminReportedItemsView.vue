@@ -16,6 +16,7 @@ type ReportedItem = {
   body?: string | null
   description?: string | null
   status?: string | null
+  moderation_status?: string | null
   type?: string | null
   is_report?: boolean
   isReport?: boolean
@@ -117,7 +118,7 @@ function reportActionPath(id: string, action: 'approve' | 'suspend' | 'unsuspend
 
 function targetStatus(item: ReportedItem) {
   const target = reportTarget(item)
-  return target.status || item.status || 'reported'
+  return target.moderation_status || item.moderation_status || target.status || item.status || 'reported'
 }
 
 function isSuspended(item: ReportedItem) {
@@ -171,9 +172,9 @@ async function moderateItem(item: ReportedItem, action: 'approve' | 'suspend' | 
       items.value = items.value.map((entry) => {
         const entryTarget = reportTarget(entry)
         if (itemKey(entry) !== id) return entry
-        if (entry.target) return { ...entry, target: { ...entryTarget, status } }
-        if (entry.data) return { ...entry, data: { ...entryTarget, status } }
-        return { ...entry, status }
+        if (entry.target) return { ...entry, moderation_status: status, target: { ...entryTarget, status, moderation_status: status } }
+        if (entry.data) return { ...entry, moderation_status: status, data: { ...entryTarget, status, moderation_status: status } }
+        return { ...entry, status, moderation_status: status }
       })
     }
 
