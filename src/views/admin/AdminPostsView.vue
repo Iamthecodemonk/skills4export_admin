@@ -63,6 +63,8 @@ type ReportedPostsResponse = {
   per_page?: number
 }
 
+const reportStatusBuckets = ['', 'reported', 'pending_review', 'approved', 'active', 'suspended', 'deleted']
+
 const props = withDefaults(defineProps<{
   reportedOnly?: boolean
   pageTitle?: string
@@ -155,6 +157,35 @@ const postStats = computed(() => [
   { label: 'Reported', value: posts.value.filter((post) => post.is_report).length, detail: 'On this page', icon: Trash2 },
   { label: 'With media', value: posts.value.filter((post) => getPostMediaAssets(post).length > 0).length, detail: 'On this page', icon: ImageIcon },
 ])
+
+function reportedPostFromWrapper(item: ReportedPostWrapper): Post | null {
+  const post = item.target || item.data
+  if (!post) return null
+
+  return {
+    ...post,
+    id: item.targetId || post.id || item.id,
+    is_report: true,
+  }
+}
+
+async function fetchReportedPostRows() {
+  const responses = await Promise.allSettled(reportStatusBuckets.map((status) => {
+    const search = new URLSearchParams({
+      page: String(page.value),
+      per_page: String(perPage.value),
+    })
+
+    if (status) search.set('status', status)
+
+    return apiRequest<ReportedPostsResponse>(`/api/admin/reports/posts?${search.toString()}`)
+  }))
+
+  const rows = responses.flatMap((response) => response.status === 'fulfilled' ? response.value.data || [] : [])
+  const uniqueRows = Array.from(new Map(rows.map((row) => [row.targetId || row.target?.id || row.data?.id || row.id, row])).values())
+
+  return uniqueRows
+}
 
 const selectedPostMedia = computed(() => {
   if (!viewingPost.value) return []
@@ -336,36 +367,37 @@ async function fetchPosts() {
 
   try {
     if (props.reportedOnly) {
-      const search = new URLSearchParams({
-        page: String(page.value),
-        per_page: String(perPage.value),
-      })
-      const response = await apiRequest<ReportedPostsResponse>(`/api/admin/reports/posts?${search.toString()}`)
-      posts.value = (response.data || [])
-        .map((item) => {
-          const post = item.target || item.data
-          if (!post) return null
-          return {
-            ...post,
-            id: item.targetId || post.id || item.id,
-            is_report: true,
-          }
-        })
+      const rows = await fetchReportedPostRows()
+      posts.value = rows
+        .map(reportedPostFromWrapper)
         .filter((post): post is Post => Boolean(post))
-      total.value = response.total || posts.value.length
-      lastPage.value = response.last_page || 1
-      perPage.value = response.per_page || perPage.value
-      from.value = response.from ?? (posts.value.length ? 1 : null)
-      to.value = response.to ?? (posts.value.length || null)
+      total.value = posts.value.length
+      lastPage.value = 1
+      from.value = posts.value.length ? 1 : null
+      to.value = posts.value.length || null
       return
     }
 
-    const response = await listPosts({
+    const [response, reportedRows] = await Promise.all([
+      listPosts({
       page: page.value,
       per_page: perPage.value,
-    })
+      }),
+      fetchReportedPostRows().catch(() => []),
+    ])
 
-    posts.value = response.data || []
+    const reportedPosts = reportedRows.map(reportedPostFromWrapper).filter((post): post is Post => Boolean(post))
+    const mergedPosts = new Map<string, Post>()
+
+    for (const post of response.data || []) {
+      mergedPosts.set(post.id, post)
+    }
+
+    for (const post of reportedPosts) {
+      mergedPosts.set(post.id, { ...(mergedPosts.get(post.id) || post), ...post, is_report: true })
+    }
+
+    posts.value = Array.from(mergedPosts.values())
     total.value = response.total || 0
     lastPage.value = response.last_page || 1
     perPage.value = response.per_page || perPage.value

@@ -52,6 +52,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const updatingId = ref<string | null>(null)
 const viewingItem = ref<ReportedItem | null>(null)
+const reportStatusBuckets = ['', 'reported', 'pending_review', 'approved', 'active', 'suspended', 'deleted']
 
 const filteredItems = computed(() => {
   const term = query.value.trim().toLowerCase()
@@ -106,12 +107,6 @@ function statusTone(value?: string | null) {
   return 'muted'
 }
 
-function candidateListPaths() {
-  return [
-    `/api/admin/reports/${props.kind}`,
-  ]
-}
-
 function reportType() {
   return props.kind
 }
@@ -141,21 +136,14 @@ async function fetchReportedItems() {
   error.value = null
 
   try {
-    let response: ReportedResponse | null = null
-    let lastError: unknown = null
+    const responses = await Promise.allSettled(reportStatusBuckets.map((status) => {
+      const search = new URLSearchParams()
+      if (status) search.set('status', status)
+      return apiRequest<ReportedResponse>(`/api/admin/reports/${props.kind}${search.toString() ? `?${search.toString()}` : ''}`)
+    }))
 
-    for (const path of candidateListPaths()) {
-      try {
-        response = await apiRequest<ReportedResponse>(path)
-        break
-      } catch (err) {
-        lastError = err
-      }
-    }
-
-    if (!response) throw lastError instanceof Error ? lastError : new Error('Unable to load reported items')
-
-    items.value = response.data || []
+    const loadedItems = responses.flatMap((response) => response.status === 'fulfilled' ? response.value.data || [] : [])
+    items.value = Array.from(new Map(loadedItems.map((item) => [itemKey(item), item])).values())
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Unable to load reported items'
     items.value = []
