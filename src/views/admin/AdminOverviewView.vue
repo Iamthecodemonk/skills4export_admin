@@ -84,7 +84,7 @@ async function fetchOverview() {
   try {
     const [users, posts, questions, jobs, freelancers] = await Promise.all([
       listUsers({ page: 1, per_page: 1 }),
-      listPosts({ page: 1, per_page: 5 }),
+      listPosts({ page: 1, per_page: 5, admin: true, status: 'approved,pending_review,active,suspended,deleted' }),
       listQuestions({ page: 1, per_page: 5 }),
       listAdminJobs({ page: 1, per_page: 100, all: true }),
       listFreelancers({ page: 1, per_page: 1 }),

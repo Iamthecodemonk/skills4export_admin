@@ -144,15 +144,16 @@ export type ReportResponse = {
   data?: Record<string, unknown>
 }
 
-export async function listPosts(params: { page?: number; per_page?: number; is_report?: boolean | number; reported?: boolean | number } = {}) {
+export async function listPosts(params: { page?: number; per_page?: number; is_report?: boolean | number; reported?: boolean | number; admin?: boolean; status?: string } = {}) {
   const search = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && String(value) !== '') {
+    if (key !== 'admin' && value !== undefined && value !== null && String(value) !== '') {
       search.set(key, String(value))
     }
   })
 
-  const path = `/api/posts${search.toString() ? `?${search.toString()}` : ''}`
+  const basePath = params.admin ? '/api/admin/posts' : '/api/posts'
+  const path = `${basePath}${search.toString() ? `?${search.toString()}` : ''}`
   return apiRequest<ListPostsResponse>(path)
 }
 
