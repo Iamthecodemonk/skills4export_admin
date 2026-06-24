@@ -30,7 +30,7 @@ const emit = defineEmits<{
 
 const route = useRoute()
 const router = useRouter()
-const communitiesOpen = ref(route.path.startsWith('/admin/communit'))
+const communitiesOpen = ref(route.path.startsWith('/admin/communit') || route.path.startsWith('/admin/admin-communities'))
 const postsOpen = ref(route.path.startsWith('/admin/posts') || route.path.startsWith('/admin/reported-posts'))
 const jobsOpen = ref(route.path.startsWith('/admin/jobs') || route.path.startsWith('/admin/reported-jobs'))
 const questionsOpen = ref(route.path.startsWith('/admin/questions') || route.path.startsWith('/admin/reported-questions'))
@@ -49,6 +49,7 @@ const adminLinks = [
 
 const communityLinks = [
   { label: 'Communities', to: '/admin/communities' },
+  { label: 'Admin communities', to: '/admin/admin-communities' },
 ]
 
 const postLinks = [

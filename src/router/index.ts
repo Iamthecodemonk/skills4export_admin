@@ -41,6 +41,17 @@ const router = createRouter({
       meta: { layout: 'app', requiresAuth: true },
     },
     {
+      path: '/admin/admin-communities',
+      name: 'Admin communities',
+      component: AdminCommunitiesView,
+      props: {
+        adminOnly: true,
+        pageTitle: 'Admin Communities',
+        pageDescription: 'Create and manage admin-only communities. New communities from this page are created with onlyAdmin enabled.',
+      },
+      meta: { layout: 'app', requiresAuth: true },
+    },
+    {
       path: '/admin/users',
       name: 'Manage users',
       component: AdminUsersView,

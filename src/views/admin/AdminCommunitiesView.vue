@@ -23,12 +23,24 @@ type Community = {
   description?: string | null
   is_active: number
   default_post_visibility: 'public' | 'connections' | 'community' | string | null
+  only_admin?: number
+  onlyAdmin?: boolean
   posts_count?: number
   post_likes_count?: number
   post_reactions_count?: number
   comments_count?: number
   created_at: string
 }
+
+const props = withDefaults(defineProps<{
+  adminOnly?: boolean
+  pageTitle?: string
+  pageDescription?: string
+}>(), {
+  adminOnly: false,
+  pageTitle: 'Manage Communities',
+  pageDescription: 'Create and organize communities, choose icons, and control default post visibility.',
+})
 
 type ListCommunityCategoriesResponse = {
   success: boolean
@@ -249,8 +261,9 @@ async function fetchCommunities() {
 
   try {
     const response = await apiRequest<ListCommunitiesResponse>(buildCommunitiesPath())
-    communities.value = response.data || []
-    total.value = response.total || 0
+    const data = response.data || []
+    communities.value = props.adminOnly ? data.filter((community) => community.onlyAdmin || community.only_admin === 1) : data
+    total.value = props.adminOnly ? communities.value.length : response.total || 0
     lastPage.value = response.last_page || 1
     perPage.value = response.per_page || perPage.value
     from.value = response.from
@@ -290,6 +303,10 @@ async function createCommunity() {
         icon: normalizeCommunityIcon(icon.value),
         description: description.value.trim() || undefined,
         defaultPostVisibility: defaultPostVisibility.value,
+        categoryId: null,
+        isPrivate: false,
+        onlyAdmin: props.adminOnly,
+        membersOnlyPosting: false,
       }),
     })
 
@@ -458,10 +475,10 @@ onMounted(() => {
             Communities
           </p>
           <h1 class="mt-2 font-display text-xl font-semibold text-[var(--text-primary)]">
-            Manage Communities
+            {{ pageTitle }}
           </h1>
           <p class="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">
-            Create and organize communities, choose icons, and control default post visibility.
+            {{ pageDescription }}
           </p>
         </div>
 
@@ -495,8 +512,8 @@ onMounted(() => {
             <FolderPlus class="h-5 w-5" />
           </span>
           <div>
-            <h2 class="font-display text-base font-semibold text-[var(--text-primary)]">Create community</h2>
-            <p class="mt-1 text-sm text-[var(--text-secondary)]">Set up a new community and choose how new posts are shared by default.</p>
+            <h2 class="font-display text-base font-semibold text-[var(--text-primary)]">{{ adminOnly ? 'Create admin community' : 'Create community' }}</h2>
+            <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ adminOnly ? 'Only admins can create these admin-only communities.' : 'Set up a new community and choose how new posts are shared by default.' }}</p>
           </div>
         </div>
 
