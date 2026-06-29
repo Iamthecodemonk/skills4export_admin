@@ -4,6 +4,7 @@ import AdminPlaceholderView from '../views/admin/AdminPlaceholderView.vue'
 import AdminLoginView from '../views/admin/AdminLoginView.vue'
 import AdminCommunityCategoriesView from '../views/admin/AdminCommunityCategoriesView.vue'
 import AdminCommunitiesView from '../views/admin/AdminCommunitiesView.vue'
+import AdminChannelsView from '../views/admin/AdminChannelsView.vue'
 import AdminQuestionsView from '../views/admin/AdminQuestionsView.vue'
 import AdminQuestionAnswersView from '../views/admin/AdminQuestionAnswersView.vue'
 import AdminPageCategoriesView from '../views/admin/AdminPageCategoriesView.vue'
@@ -43,12 +44,7 @@ const router = createRouter({
     {
       path: '/admin/admin-communities',
       name: 'Admin communities',
-      component: AdminCommunitiesView,
-      props: {
-        adminOnly: true,
-        pageTitle: 'Admin Communities',
-        pageDescription: 'Create and manage admin-only communities. New communities from this page are created with onlyAdmin enabled.',
-      },
+      component: AdminChannelsView,
       meta: { layout: 'app', requiresAuth: true },
     },
     {
