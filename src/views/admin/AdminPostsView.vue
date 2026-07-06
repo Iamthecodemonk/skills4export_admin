@@ -138,7 +138,9 @@ const filteredPosts = computed(() => {
   const term = search.value.trim().toLowerCase()
   const status = statusFilter.value
 
-  const sourcePosts = props.reportedOnly ? posts.value.filter((post) => post.is_report) : posts.value
+  const sourcePosts = props.reportedOnly
+    ? posts.value.filter((post) => post.is_report)
+    : posts.value.filter((post) => props.deletedOnly ? isDeletedPost(post) : !isDeletedPost(post))
 
   const searched = sourcePosts.filter((post) => {
     const matchesSearch = !term || `${post.title} ${post.content} ${post.user?.name || ''} ${post.user?.email || ''} ${post.community?.name || ''}`.toLowerCase().includes(term)
@@ -339,6 +341,11 @@ function postStatus(post: Post) {
   if (post.status) return post.status
   if (post.is_report) return 'reported'
   return post.type || 'active'
+}
+
+function isDeletedPost(post: Post) {
+  const meta = post as Post & { deleted_at?: string | null; deletedAt?: string | null; is_deleted?: boolean | number; isDeleted?: boolean | number }
+  return postStatus(post) === 'deleted' || Boolean(meta.deleted_at || meta.deletedAt || meta.is_deleted || meta.isDeleted)
 }
 
 function statusTone(value?: string | null) {
@@ -905,11 +912,11 @@ watch(() => props.deletedOnly, () => {
           </div>
 
           <div v-else-if="activePostTab === 'report'" class="mt-5 space-y-4">
-            <div class="rounded-[0.9rem] border border-amber-200 bg-amber-50 p-4 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+            <div class="rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-4 text-[var(--text-primary)]">
               <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                   <p class="font-semibold">Submit a report</p>
-                  <p class="mt-1 text-sm">Choose the rule that applies to this post.</p>
+                  <p class="mt-1 text-sm text-[var(--text-secondary)]">Choose the rule that applies to this post.</p>
                 </div>
                 <StatusChip tone="warning">{{ selectedReportReason }}</StatusChip>
               </div>
@@ -920,7 +927,7 @@ watch(() => props.deletedOnly, () => {
                   :key="reason"
                   type="button"
                   class="min-h-9 rounded-[0.75rem] border px-3 py-1.5 text-sm font-semibold"
-                  :class="selectedReportReason === reason ? 'border-amber-400 bg-white text-amber-800 dark:bg-amber-400/20 dark:text-amber-100' : 'border-amber-200 text-amber-700 hover:bg-amber-100 dark:border-amber-400/20 dark:text-amber-200 dark:hover:bg-amber-400/10'"
+                  :class="selectedReportReason === reason ? 'border-[var(--accent-strong)] bg-[var(--accent-soft)] text-[var(--accent-strong)]' : 'border-[color:var(--border-soft)] bg-[var(--surface-primary)] text-[var(--text-secondary)] hover:border-[var(--accent-soft)] hover:text-[var(--accent-strong)]'"
                   @click="selectedReportReason = reason"
                 >
                   {{ reason }}
@@ -931,13 +938,13 @@ watch(() => props.deletedOnly, () => {
                 <span class="mb-2 block text-sm font-semibold">Details</span>
                 <textarea
                   v-model="reportDetails"
-                  class="min-h-24 w-full rounded-[0.85rem] border border-amber-200 bg-white/70 px-3 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-amber-400 dark:border-amber-400/20 dark:bg-transparent"
+                  class="min-h-24 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] px-3 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-strong)]"
                   placeholder="Add context for moderators"
                 ></textarea>
               </label>
 
               <div class="mt-4 flex justify-end">
-                <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] border border-amber-300 px-3 text-sm font-semibold disabled:cursor-wait disabled:opacity-60" :disabled="reportingPostId === viewingPost.id" @click="submitPostReport(viewingPost)">
+                <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] border border-[var(--accent-soft)] px-3 text-sm font-semibold text-[var(--accent-strong)] disabled:cursor-wait disabled:opacity-60" :disabled="reportingPostId === viewingPost.id" @click="submitPostReport(viewingPost)">
                   <Loader2 v-if="reportingPostId === viewingPost.id" class="h-4 w-4 animate-spin" />
                   <AlertTriangle v-else class="h-4 w-4" />
                   Report post
@@ -958,11 +965,11 @@ watch(() => props.deletedOnly, () => {
               </button>
             </div>
 
-            <div class="rounded-[0.9rem] border border-amber-200 bg-amber-50 p-4 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+            <div class="rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-4 text-[var(--text-primary)]">
               <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                   <p class="font-semibold">Comment report reason</p>
-                  <p class="mt-1 text-sm">Choose the rule before reporting a comment.</p>
+                  <p class="mt-1 text-sm text-[var(--text-secondary)]">Choose the rule before reporting a comment.</p>
                 </div>
                 <StatusChip tone="warning">{{ selectedReportReason }}</StatusChip>
               </div>
@@ -973,7 +980,7 @@ watch(() => props.deletedOnly, () => {
                   :key="`comment-${reason}`"
                   type="button"
                   class="min-h-9 rounded-[0.75rem] border px-3 py-1.5 text-sm font-semibold"
-                  :class="selectedReportReason === reason ? 'border-amber-400 bg-white text-amber-800 dark:bg-amber-400/20 dark:text-amber-100' : 'border-amber-200 text-amber-700 hover:bg-amber-100 dark:border-amber-400/20 dark:text-amber-200 dark:hover:bg-amber-400/10'"
+                  :class="selectedReportReason === reason ? 'border-[var(--accent-strong)] bg-[var(--accent-soft)] text-[var(--accent-strong)]' : 'border-[color:var(--border-soft)] bg-[var(--surface-primary)] text-[var(--text-secondary)] hover:border-[var(--accent-soft)] hover:text-[var(--accent-strong)]'"
                   @click="selectedReportReason = reason"
                 >
                   {{ reason }}
@@ -984,7 +991,7 @@ watch(() => props.deletedOnly, () => {
                 <span class="mb-2 block text-sm font-semibold">Details</span>
                 <textarea
                   v-model="reportDetails"
-                  class="min-h-20 w-full rounded-[0.85rem] border border-amber-200 bg-white/70 px-3 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-amber-400 dark:border-amber-400/20 dark:bg-transparent"
+                  class="min-h-20 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] px-3 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-strong)]"
                   placeholder="Add context for the comment report"
                 ></textarea>
               </label>
