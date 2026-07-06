@@ -1,0 +1,17 @@
+export const REPORT_REASONS = [
+  'Misinformation',
+  'Spam',
+  'Threats/Violence',
+  'Graphic content',
+  'Sexual content',
+  'Harassment and Bullying',
+  'Illegal activities',
+  'Sensitive and personal information',
+  'Hate speech',
+  'Suicide and Self-Harm',
+  'Minor abuse',
+  'Prohibited transactions',
+  'Scam',
+  'Copyright and Intellectual Property',
+  'Invasion of privacy',
+]

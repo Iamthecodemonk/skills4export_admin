@@ -22,6 +22,7 @@ import {
 import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
 import { apiRequest } from '../../composables/useApi'
+import { REPORT_REASONS } from '../../constants/reportReasons'
 import {
   deletePost,
   deletePostComment,
@@ -69,17 +70,19 @@ const reportStatusBuckets = ['', 'reported', 'pending_review', 'approved', 'acti
 
 const props = withDefaults(defineProps<{
   reportedOnly?: boolean
+  deletedOnly?: boolean
   pageTitle?: string
   pageDescription?: string
 }>(), {
   reportedOnly: false,
+  deletedOnly: false,
   pageTitle: 'Manage Posts',
   pageDescription: 'Review post media, open full details, moderate posts, and manage comments.',
 })
 
 const posts = ref<Post[]>([])
 const search = ref('')
-const statusFilter = ref('')
+const statusFilter = ref(props.deletedOnly ? 'deleted' : '')
 const sortFilter = ref<'latest' | 'oldest' | 'middle'>('latest')
 const page = ref(1)
 const perPage = ref(20)
@@ -93,6 +96,8 @@ const updatingPostId = ref<string | null>(null)
 const updatingCommentId = ref<string | null>(null)
 const reportingPostId = ref<string | null>(null)
 const reportingCommentId = ref<string | null>(null)
+const selectedReportReason = ref(REPORT_REASONS[0])
+const reportDetails = ref('')
 const error = ref<string | null>(null)
 const viewingPost = ref<Post | null>(null)
 const showingStats = ref(false)
@@ -110,13 +115,18 @@ const commentsLoading = ref(false)
 const commentsError = ref<string | null>(null)
 const commentsLoadedPostId = ref<string | null>(null)
 
-const statusFilterOptions = [
-  { label: 'All statuses', value: '' },
-  { label: 'Deleted', value: 'deleted' },
-  { label: 'Suspended', value: 'suspended' },
-  { label: 'Unsuspended', value: 'active' },
-  { label: 'Approved', value: 'approved' },
-]
+const statusFilterOptions = computed(() => {
+  if (props.deletedOnly) {
+    return [{ label: 'Deleted', value: 'deleted' }]
+  }
+
+  return [
+    { label: 'All statuses', value: '' },
+    { label: 'Suspended', value: 'suspended' },
+    { label: 'Unsuspended', value: 'active' },
+    { label: 'Approved', value: 'approved' },
+  ]
+})
 
 const sortFilterOptions: Array<{ label: string; value: 'latest' | 'oldest' | 'middle' }> = [
   { label: 'Latest posts', value: 'latest' },
@@ -385,9 +395,9 @@ async function fetchPosts() {
 
     const [response, reportedRows] = await Promise.all([
       listAdminPosts({
-      page: page.value,
-      per_page: perPage.value,
-      status: 'approved,pending_review,active,suspended,deleted',
+        page: page.value,
+        per_page: perPage.value,
+        status: props.deletedOnly ? 'deleted' : 'approved,pending_review,active,suspended',
       }),
       fetchReportedPostRows().catch(() => []),
     ])
@@ -539,12 +549,14 @@ async function submitPostReport(post: Post) {
 
   try {
     await reportPost(post.id, {
-      reason: 'Admin report',
-      details: 'Flagged by an admin from the Manage Posts detail modal.',
+      reason: selectedReportReason.value,
+      details: reportDetails.value.trim() || 'Flagged by an admin from the Manage Posts detail modal.',
     })
     posts.value = posts.value.map((item) => item.id === post.id ? { ...item, is_report: true } : item)
     if (viewingPost.value?.id === post.id) viewingPost.value = { ...viewingPost.value, is_report: true }
     toast.success('Post reported')
+    selectedReportReason.value = REPORT_REASONS[0]
+    reportDetails.value = ''
   } catch (err) {
     toast.error(err instanceof Error ? err.message : 'Unable to report post')
   } finally {
@@ -557,8 +569,8 @@ async function submitCommentReport(comment: PostComment) {
 
   try {
     await reportPostComment(comment.id, {
-      reason: 'Admin report',
-      details: 'Flagged by an admin from the post comments tab.',
+      reason: selectedReportReason.value,
+      details: reportDetails.value.trim() || 'Flagged by an admin from the post comments tab.',
     })
     comments.value = comments.value.map((item) => item.id === comment.id ? { ...item, is_report: true, isReport: true } : item)
     toast.success('Comment reported')
@@ -604,6 +616,15 @@ watch(() => props.reportedOnly, () => {
   page.value = 1
   search.value = ''
   statusFilter.value = ''
+  viewingPost.value = null
+  activePostTab.value = 'main'
+  fetchPosts()
+})
+
+watch(() => props.deletedOnly, () => {
+  page.value = 1
+  search.value = ''
+  statusFilter.value = props.deletedOnly ? 'deleted' : ''
   viewingPost.value = null
   activePostTab.value = 'main'
   fetchPosts()
@@ -885,11 +906,37 @@ watch(() => props.reportedOnly, () => {
 
           <div v-else-if="activePostTab === 'report'" class="mt-5 space-y-4">
             <div class="rounded-[0.9rem] border border-amber-200 bg-amber-50 p-4 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
-              <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <p class="font-semibold">Report this post</p>
-                  <p class="mt-1 text-sm">Flag this post so it appears on the Reported Posts page for admin review.</p>
+                  <p class="font-semibold">Submit a report</p>
+                  <p class="mt-1 text-sm">Choose the rule that applies to this post.</p>
                 </div>
+                <StatusChip tone="warning">{{ selectedReportReason }}</StatusChip>
+              </div>
+
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button
+                  v-for="reason in REPORT_REASONS"
+                  :key="reason"
+                  type="button"
+                  class="min-h-9 rounded-[0.75rem] border px-3 py-1.5 text-sm font-semibold"
+                  :class="selectedReportReason === reason ? 'border-amber-400 bg-white text-amber-800 dark:bg-amber-400/20 dark:text-amber-100' : 'border-amber-200 text-amber-700 hover:bg-amber-100 dark:border-amber-400/20 dark:text-amber-200 dark:hover:bg-amber-400/10'"
+                  @click="selectedReportReason = reason"
+                >
+                  {{ reason }}
+                </button>
+              </div>
+
+              <label class="mt-4 block">
+                <span class="mb-2 block text-sm font-semibold">Details</span>
+                <textarea
+                  v-model="reportDetails"
+                  class="min-h-24 w-full rounded-[0.85rem] border border-amber-200 bg-white/70 px-3 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-amber-400 dark:border-amber-400/20 dark:bg-transparent"
+                  placeholder="Add context for moderators"
+                ></textarea>
+              </label>
+
+              <div class="mt-4 flex justify-end">
                 <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] border border-amber-300 px-3 text-sm font-semibold disabled:cursor-wait disabled:opacity-60" :disabled="reportingPostId === viewingPost.id" @click="submitPostReport(viewingPost)">
                   <Loader2 v-if="reportingPostId === viewingPost.id" class="h-4 w-4 animate-spin" />
                   <AlertTriangle v-else class="h-4 w-4" />
@@ -909,6 +956,38 @@ watch(() => props.reportedOnly, () => {
                 <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': commentsLoading }" />
                 Refresh
               </button>
+            </div>
+
+            <div class="rounded-[0.9rem] border border-amber-200 bg-amber-50 p-4 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+              <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p class="font-semibold">Comment report reason</p>
+                  <p class="mt-1 text-sm">Choose the rule before reporting a comment.</p>
+                </div>
+                <StatusChip tone="warning">{{ selectedReportReason }}</StatusChip>
+              </div>
+
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button
+                  v-for="reason in REPORT_REASONS"
+                  :key="`comment-${reason}`"
+                  type="button"
+                  class="min-h-9 rounded-[0.75rem] border px-3 py-1.5 text-sm font-semibold"
+                  :class="selectedReportReason === reason ? 'border-amber-400 bg-white text-amber-800 dark:bg-amber-400/20 dark:text-amber-100' : 'border-amber-200 text-amber-700 hover:bg-amber-100 dark:border-amber-400/20 dark:text-amber-200 dark:hover:bg-amber-400/10'"
+                  @click="selectedReportReason = reason"
+                >
+                  {{ reason }}
+                </button>
+              </div>
+
+              <label class="mt-4 block">
+                <span class="mb-2 block text-sm font-semibold">Details</span>
+                <textarea
+                  v-model="reportDetails"
+                  class="min-h-20 w-full rounded-[0.85rem] border border-amber-200 bg-white/70 px-3 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-amber-400 dark:border-amber-400/20 dark:bg-transparent"
+                  placeholder="Add context for the comment report"
+                ></textarea>
+              </label>
             </div>
 
             <div v-if="commentsLoading" class="flex min-h-32 items-center justify-center gap-2 rounded-[0.9rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] text-sm text-[var(--text-secondary)]">

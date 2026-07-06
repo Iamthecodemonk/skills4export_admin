@@ -124,6 +124,17 @@ const router = createRouter({
       meta: { layout: 'app', requiresAuth: true },
     },
     {
+      path: '/admin/deleted-posts',
+      name: 'Deleted posts',
+      component: AdminPostsView,
+      props: {
+        deletedOnly: true,
+        pageTitle: 'Deleted Posts',
+        pageDescription: 'Review posts that have been deleted or removed from public feeds.',
+      },
+      meta: { layout: 'app', requiresAuth: true },
+    },
+    {
       path: '/admin/page-categories',
       name: 'Page categories',
       component: AdminPageCategoriesView,
