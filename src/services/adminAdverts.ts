@@ -6,6 +6,8 @@ export type AdvertOptionStatus = 'active' | 'suspended' | 'deleted'
 export type AdvertPlacementOption = {
   id: string
   name: string
+  sizeLabel?: string
+  size_label?: string
   description: string | null
   status: AdvertOptionStatus
   createdAt: string
@@ -15,11 +17,19 @@ export type AdvertPlacementOption = {
 export type Advert = {
   id: string
   locationId: string
+  pageLocationId?: string
+  page_location_id?: string
   location: AdvertPlacementOption | Record<string, unknown> | null
   siteId: string
+  adSizeId?: string
+  ad_size_id?: string
   site: AdvertPlacementOption | Record<string, unknown> | null
+  adSize?: AdvertPlacementOption | Record<string, unknown> | null
+  ad_size?: AdvertPlacementOption | Record<string, unknown> | null
   duration: string | number | null
   durationDays: number | null
+  durationHours?: string | number | null
+  duration_hours?: string | number | null
   imageUrl: string | null
   imageMediaId: string | null
   linkUrl: string | null
@@ -65,21 +75,33 @@ export type AdvertParams = {
 }
 
 export type CreateAdvertPayload = {
-  locationId: string
-  siteId: string
+  locationId?: string
+  pageLocationId?: string
+  page_location_id?: string
+  siteId?: string
+  adSizeId?: string
+  ad_size_id?: string
   duration: string | number
   durationDays?: number
+  durationHours?: string | number
+  duration_hours?: string | number
   imageUrl?: string
   imageMediaId?: string
   mediaPath?: string
   linkUrl?: string
   ownerName?: string
+  adOwner?: string
+  ad_owner?: string
   ownerPhone?: string
+  contactPhone?: string
+  contact_phone?: string
   ownerContact?: string
   ownerEmail?: string
   approvedBy?: string
   textAbove?: string
   textBelow?: string
+  adText?: string
+  ad_text?: string
   status?: AdvertStatus
   startsAt?: string
   expiresAt?: string
@@ -87,6 +109,8 @@ export type CreateAdvertPayload = {
 
 export type AdvertOptionPayload = {
   name: string
+  sizeLabel?: string
+  size_label?: string
   description?: string
   status?: AdvertOptionStatus
 }
@@ -145,7 +169,7 @@ export function deleteAdvert(id: string) {
 }
 
 export function listAdvertLocations(params: AdvertParams = {}) {
-  return apiRequest<AdvertPaginator<AdvertPlacementOption>>(withParams('/api/advert-locations', params))
+  return apiRequest<AdvertPaginator<AdvertPlacementOption>>(withParams('/api/advert-locations/all', params))
 }
 
 export function createAdvertLocation(payload: AdvertOptionPayload) {
@@ -176,31 +200,31 @@ export function updateAdvertLocationStatus(id: string, status: AdvertOptionStatu
 }
 
 export function listAdvertSites(params: AdvertParams = {}) {
-  return apiRequest<AdvertPaginator<AdvertPlacementOption>>(withParams('/api/advert-sites', params))
+  return apiRequest<AdvertPaginator<AdvertPlacementOption>>(withParams('/api/advert-sizes/all', params))
 }
 
 export function createAdvertSite(payload: AdvertOptionPayload) {
-  return apiRequest<DataResponse<AdvertPlacementOption>>('/api/advert-sites', {
+  return apiRequest<DataResponse<AdvertPlacementOption>>('/api/advert-sizes', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, size_label: payload.size_label || payload.sizeLabel || payload.name }),
   })
 }
 
 export function updateAdvertSite(id: string, payload: AdvertOptionPayload) {
-  return apiRequest<DataResponse<AdvertPlacementOption>>(`/api/advert-sites/${id}`, {
+  return apiRequest<DataResponse<AdvertPlacementOption>>(`/api/advert-sizes/${id}`, {
     method: 'PATCH',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, size_label: payload.size_label || payload.sizeLabel || payload.name }),
   })
 }
 
 export function deleteAdvertSite(id: string) {
-  return apiRequest<DataResponse<AdvertPlacementOption>>(`/api/advert-sites/${id}`, {
+  return apiRequest<DataResponse<AdvertPlacementOption>>(`/api/advert-sizes/${id}`, {
     method: 'DELETE',
   })
 }
 
 export function updateAdvertSiteStatus(id: string, status: AdvertOptionStatus) {
-  return apiRequest<DataResponse<AdvertPlacementOption>>(`/api/advert-sites/${id}/status`, {
+  return apiRequest<DataResponse<AdvertPlacementOption>>(`/api/advert-sizes/${id}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
   })
