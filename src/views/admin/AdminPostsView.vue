@@ -139,7 +139,7 @@ const filteredPosts = computed(() => {
   const status = statusFilter.value
 
   const sourcePosts = props.reportedOnly
-    ? posts.value.filter((post) => post.is_report)
+    ? posts.value.filter((post) => shouldShowReportedBadge(post))
     : posts.value.filter((post) => props.deletedOnly ? isDeletedPost(post) : !isDeletedPost(post))
 
   const searched = sourcePosts.filter((post) => {
@@ -175,12 +175,15 @@ const postStats = computed(() => [
 function reportedPostFromWrapper(item: ReportedPostWrapper): Post | null {
   const post = item.target || item.data
   if (!post) return null
+  const targetStatus = post.moderation_status || post.status
+  const reportStatus = item.moderation_status || item.status
+  const resolvedTargetStatus = targetStatus === 'approved' || targetStatus === 'deleted' ? targetStatus : null
 
   return {
     ...post,
     id: item.targetId || post.id || item.id,
-    status: item.moderation_status || item.status || post.moderation_status || post.status,
-    moderation_status: item.moderation_status || item.status || post.moderation_status || post.status,
+    status: resolvedTargetStatus || reportStatus || targetStatus,
+    moderation_status: resolvedTargetStatus || reportStatus || targetStatus,
     is_report: true,
   }
 }
@@ -348,6 +351,14 @@ function isDeletedPost(post: Post) {
   return postStatus(post) === 'deleted' || Boolean(meta.deleted_at || meta.deletedAt || meta.is_deleted || meta.isDeleted)
 }
 
+function isApprovedPost(post: Post) {
+  return postStatus(post) === 'approved'
+}
+
+function shouldShowReportedBadge(post: Post) {
+  return Boolean(post.is_report) && !isDeletedPost(post) && !isApprovedPost(post)
+}
+
 function statusTone(value?: string | null) {
   if (value === 'approved' || value === 'active' || value === 'live') return 'success'
   if (value === 'pending_review' || value === 'reported') return 'warning'
@@ -390,13 +401,16 @@ async function fetchPosts() {
   try {
     if (props.reportedOnly) {
       const rows = await fetchReportedPostRows()
-      posts.value = rows
+      const unresolvedReportedPosts = rows
         .map(reportedPostFromWrapper)
         .filter((post): post is Post => Boolean(post))
-      total.value = posts.value.length
+        .filter(shouldShowReportedBadge)
+
+      posts.value = unresolvedReportedPosts
+      total.value = unresolvedReportedPosts.length
       lastPage.value = 1
-      from.value = posts.value.length ? 1 : null
-      to.value = posts.value.length || null
+      from.value = unresolvedReportedPosts.length ? 1 : null
+      to.value = unresolvedReportedPosts.length || null
       return
     }
 
@@ -410,17 +424,12 @@ async function fetchPosts() {
     ])
 
     const reportedPosts = reportedRows.map(reportedPostFromWrapper).filter((post): post is Post => Boolean(post))
-    const mergedPosts = new Map<string, Post>()
+    const reportedPostIds = new Set(reportedPosts.filter(shouldShowReportedBadge).map((post) => post.id))
 
-    for (const post of response.data || []) {
-      mergedPosts.set(post.id, post)
-    }
-
-    for (const post of reportedPosts) {
-      mergedPosts.set(post.id, { ...(mergedPosts.get(post.id) || post), ...post, is_report: true })
-    }
-
-    posts.value = Array.from(mergedPosts.values())
+    posts.value = (response.data || []).map((post) => ({
+      ...post,
+      is_report: reportedPostIds.has(post.id),
+    }))
     total.value = response.total || 0
     lastPage.value = response.last_page || 1
     perPage.value = response.per_page || perPage.value
@@ -738,7 +747,7 @@ watch(() => props.deletedOnly, () => {
                 <h3 class="line-clamp-2 font-display text-sm font-semibold leading-5 text-[var(--text-primary)]">{{ post.title }}</h3>
                 <p class="mt-1 truncate text-xs text-[var(--text-secondary)]">{{ postAuthor(post) }}</p>
               </div>
-              <StatusChip :tone="post.is_report ? 'danger' : 'muted'">{{ post.is_report ? 'Reported' : post.type }}</StatusChip>
+              <StatusChip :tone="shouldShowReportedBadge(post) ? 'danger' : 'muted'">{{ shouldShowReportedBadge(post) ? 'Reported' : post.type }}</StatusChip>
             </div>
 
             <p class="mt-2 line-clamp-2 min-h-9 text-xs leading-5 text-[var(--text-secondary)]">{{ stripHtml(post.content) }}</p>
