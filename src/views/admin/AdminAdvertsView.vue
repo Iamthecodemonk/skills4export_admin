@@ -137,6 +137,8 @@ function extractMediaAssetId(response: MediaJobResponse) {
   const data = response.data || response
   const nestedData = data.data && typeof data.data === 'object' ? data.data as Record<string, unknown> : null
   const result = data.result && typeof data.result === 'object' ? data.result as Record<string, unknown> : null
+  const returnValue = data.returnvalue && typeof data.returnvalue === 'object' ? data.returnvalue as Record<string, unknown> : null
+  const returnValueData = returnValue?.data && typeof returnValue.data === 'object' ? returnValue.data as Record<string, unknown> : null
   const asset = data.asset && typeof data.asset === 'object' ? data.asset as Record<string, unknown> : null
 
   return String(
@@ -149,6 +151,16 @@ function extractMediaAssetId(response: MediaJobResponse) {
     nestedData?.id ||
     result?.assetId ||
     result?.id ||
+    returnValue?.assetId ||
+    returnValue?.asset_id ||
+    returnValue?.mediaAssetId ||
+    returnValue?.media_asset_id ||
+    returnValue?.id ||
+    returnValueData?.assetId ||
+    returnValueData?.asset_id ||
+    returnValueData?.mediaAssetId ||
+    returnValueData?.media_asset_id ||
+    returnValueData?.id ||
     asset?.id ||
     '',
   )
@@ -157,7 +169,7 @@ function extractMediaAssetId(response: MediaJobResponse) {
 function isMediaJobComplete(response: MediaJobResponse) {
   const data = response.data || response
   const status = String(data.status || data.state || response.status || '').toLowerCase()
-  return ['complete', 'completed', 'success', 'succeeded', 'processed', 'done'].includes(status) || !!extractMediaAssetId(response)
+  return ['complete', 'completed', 'success', 'succeeded', 'processed', 'done'].includes(status)
 }
 
 function isMediaJobFailed(response: MediaJobResponse) {
@@ -301,6 +313,13 @@ function goToPage(nextPage: number) {
 
 async function createNewAdvert() {
   formError.value = null
+
+  if (uploadingAdvertImage.value) {
+    formError.value = 'Advert image is still processing. Please wait until the upload finishes before creating the advert.'
+    toast.error(formError.value)
+    return
+  }
+
   creating.value = true
 
   try {
@@ -371,7 +390,7 @@ function openEditAdvert(advert: Advert) {
 }
 
 async function pollMediaJobForAsset(jobId: string) {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  for (let attempt = 0; attempt < 45; attempt += 1) {
     const job = await getMediaJob(jobId)
 
     if (isMediaJobFailed(job)) {
@@ -383,7 +402,7 @@ async function pollMediaJobForAsset(jobId: string) {
       if (assetId) return assetId
     }
 
-    await sleep(1500)
+    await sleep(2000)
   }
 
   throw new Error('Advert image is still processing. Try again shortly.')
@@ -427,6 +446,13 @@ async function saveAdvertEdits() {
   if (!viewingAdvert.value) return
 
   formError.value = null
+
+  if (uploadingAdvertImage.value) {
+    formError.value = 'Advert image is still processing. Please wait until the upload finishes before saving.'
+    toast.error(formError.value)
+    return
+  }
+
   creating.value = true
 
   try {
@@ -645,6 +671,8 @@ onMounted(async () => {
               </label>
             </div>
             <p v-if="uploadError" class="mt-1 text-sm font-medium text-red-600">{{ uploadError }}</p>
+            <p v-else-if="uploadingAdvertImage" class="mt-1 text-sm font-medium text-[var(--text-secondary)]">Image is uploading and processing. Submit will unlock when it is ready.</p>
+            <p v-else-if="form.imageMediaId" class="mt-1 text-sm font-medium text-emerald-600">Advert image is ready.</p>
           </div>
           <div>
             <label class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Link URL</label>
@@ -672,9 +700,9 @@ onMounted(async () => {
 
         <div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="inline-flex h-11 items-center justify-center rounded-[0.85rem] border border-[color:var(--border-soft)] px-4 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)]" @click="viewingAdvert = null; resetAdvertForm()">Clear</button>
-          <button type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-strong)] disabled:opacity-70" :disabled="creating">
-            <Loader2 v-if="creating" class="h-4 w-4 animate-spin" />
-            {{ creating ? 'Saving...' : viewingAdvert ? 'Save advert' : 'Create new advert' }}
+          <button type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-strong)] disabled:cursor-wait disabled:opacity-70" :disabled="creating || uploadingAdvertImage">
+            <Loader2 v-if="creating || uploadingAdvertImage" class="h-4 w-4 animate-spin" />
+            {{ uploadingAdvertImage ? 'Processing image...' : creating ? 'Saving...' : viewingAdvert ? 'Save advert' : 'Create new advert' }}
           </button>
         </div>
       </form>
