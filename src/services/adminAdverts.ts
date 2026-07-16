@@ -86,6 +86,8 @@ export type CreateAdvertPayload = {
   durationHours?: string | number
   duration_hours?: string | number
   imageUrl?: string
+  imagePath?: string
+  image_path?: string
   imageMediaId?: string
   mediaPath?: string
   linkUrl?: string
