@@ -38,15 +38,19 @@ const questionsOpen = ref(route.path.startsWith('/admin/questions') || route.pat
 const answersOpen = ref(route.path.startsWith('/admin/reported-answers'))
 const commentsOpen = ref(route.path.startsWith('/admin/reported-comments'))
 const pagesOpen = ref(route.path.startsWith('/admin/page') || route.path.startsWith('/admin/reported-pages'))
+const managementOpen = ref(route.path.startsWith('/admin/legal-documents'))
 
 const adminLinks = [
   { label: 'HOME', to: '/admin', icon: LayoutDashboard },
   { label: 'Manage users', to: '/admin/users', icon: Users },
   { label: 'Manage freelancers', to: '/admin/freelancers', icon: UserRoundCheck },
   { label: 'Manage adverts', to: '/admin/adverts', icon: Megaphone },
-  { label: 'Legal documents', to: '/admin/legal-documents', icon: FileText },
   { label: 'Manage contest', to: '/admin/contest', icon: Trophy },
   { label: 'Manage admin users', to: '/admin/admin-users', icon: ShieldCheck },
+]
+
+const managementLinks = [
+  { label: 'Legal documents', to: '/admin/legal-documents' },
 ]
 
 const communityLinks = [
@@ -112,6 +116,10 @@ const pagesActive = computed(() => {
   return pageLinks.some((link) => route.path === link.to)
 })
 
+const managementActive = computed(() => {
+  return managementLinks.some((link) => route.path === link.to)
+})
+
 async function handleLogout() {
   try {
     await logout()
@@ -171,6 +179,32 @@ async function handleLogout() {
             <div v-if="postsOpen" class="ml-3 mt-1 space-y-1 border-l border-[color:var(--border-soft)] pl-3">
               <RouterLink
                 v-for="link in postLinks"
+                :key="link.to"
+                :to="link.to"
+                class="flex rounded-[0.75rem] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
+                active-class="bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+                @click="$emit('close')"
+              >
+                {{ link.label }}
+              </RouterLink>
+            </div>
+          </div>
+
+          <div class="pt-1">
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-[0.85rem] px-3 py-2.5 text-left text-sm font-medium leading-5 text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
+              :class="managementActive ? 'bg-[var(--accent-soft)] text-[var(--accent-strong)]' : ''"
+              :aria-expanded="managementOpen"
+              @click="managementOpen = !managementOpen"
+            >
+              <FileText class="h-4 w-4 shrink-0" />
+              <span class="min-w-0 flex-1 truncate">Management</span>
+              <ChevronDown class="ml-auto h-4 w-4 transition-transform" :class="managementOpen ? 'rotate-180' : ''" />
+            </button>
+            <div v-if="managementOpen" class="ml-3 mt-1 space-y-1 border-l border-[color:var(--border-soft)] pl-3">
+              <RouterLink
+                v-for="link in managementLinks"
                 :key="link.to"
                 :to="link.to"
                 class="flex rounded-[0.75rem] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--accent-strong)]"
