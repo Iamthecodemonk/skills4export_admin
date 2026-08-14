@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { Edit2, FileText, Loader2, Plus, RefreshCw, Save, Trash2, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import CkEditorField from '../../components/CkEditorField.vue'
 import StatusChip from '../../components/StatusChip.vue'
 import {
   createLegalDocument,
@@ -367,7 +368,7 @@ onMounted(() => {
 
               <label class="md:col-span-2">
                 <span class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Content</span>
-                <textarea v-model="form.content" class="min-h-80 w-full resize-y rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 py-3 font-mono text-sm outline-none focus:border-[var(--accent)]" placeholder="<p>Policy content here</p>"></textarea>
+                <CkEditorField v-model="form.content" placeholder="Policy content here" />
               </label>
             </div>
 
