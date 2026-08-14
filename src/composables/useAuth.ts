@@ -10,26 +10,43 @@ export async function login(email: string, password: string) {
   }
 
   try {
-    const response = await fetch(getApiUrl('/api/login'), {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        password,
-      }),
-    })
+    const loginPaths = ['/api/login', '/api/auth/login', '/api/admin/login']
+    let body: Record<string, any> = {}
+    let loginError = 'Login failed'
 
-    const body = await response.json().catch(() => ({}))
+    for (const path of loginPaths) {
+      const response = await fetch(getApiUrl(path), {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      })
 
-    if (!response.ok) {
-      return { ok: false, error: getApiErrorMessage(body) }
+      body = await response.json().catch(() => ({}))
+
+      if (response.ok) {
+        loginError = ''
+        break
+      }
+
+      loginError = getApiErrorMessage(body)
+
+      if (!/handler not implemented|not implemented/i.test(loginError)) {
+        return { ok: false, error: loginError }
+      }
+    }
+
+    if (loginError) {
+      return { ok: false, error: loginError }
     }
 
     const user = body.data
-    const token = body.token || user?.api_token
+    const token = body.token || body.access_token || user?.api_token || user?.token
     if (!token || !user?.id || !user?.email) {
       return { ok: false, error: 'Invalid response from server' }
     }

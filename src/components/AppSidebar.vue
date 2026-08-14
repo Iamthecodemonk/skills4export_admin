@@ -6,6 +6,7 @@ import {
   ChevronDown,
   CircleHelp,
   ClipboardCheck,
+  FileText,
   LayoutDashboard,
   LogOut,
   Megaphone,
@@ -43,6 +44,7 @@ const adminLinks = [
   { label: 'Manage users', to: '/admin/users', icon: Users },
   { label: 'Manage freelancers', to: '/admin/freelancers', icon: UserRoundCheck },
   { label: 'Manage adverts', to: '/admin/adverts', icon: Megaphone },
+  { label: 'Legal documents', to: '/admin/legal-documents', icon: FileText },
   { label: 'Manage contest', to: '/admin/contest', icon: Trophy },
   { label: 'Manage admin users', to: '/admin/admin-users', icon: ShieldCheck },
 ]

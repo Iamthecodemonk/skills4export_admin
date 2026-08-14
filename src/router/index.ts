@@ -15,6 +15,7 @@ import AdminFreelancersView from '../views/admin/AdminFreelancersView.vue'
 import AdminPostsView from '../views/admin/AdminPostsView.vue'
 import AdminFreelanceJobsView from '../views/admin/AdminFreelanceJobsView.vue'
 import AdminAdvertsView from '../views/admin/AdminAdvertsView.vue'
+import AdminLegalDocumentsView from '../views/admin/AdminLegalDocumentsView.vue'
 import { isAuthenticated } from '../composables/useAuth'
 
 const adminPlaceholderRoutes = [
@@ -184,6 +185,12 @@ const router = createRouter({
       path: '/admin/adverts',
       name: 'Manage adverts',
       component: AdminAdvertsView,
+      meta: { layout: 'app', requiresAuth: true },
+    },
+    {
+      path: '/admin/legal-documents',
+      name: 'Legal documents',
+      component: AdminLegalDocumentsView,
       meta: { layout: 'app', requiresAuth: true },
     },
     ...adminPlaceholderRoutes.map((route) => ({
