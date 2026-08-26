@@ -105,6 +105,10 @@ export async function listFreelanceJobs(params: FreelanceJobParams = {}) {
   return apiRequest<FreelanceJobPaginator<FreelanceJob>>(buildPath('/api/freelance-jobs', params))
 }
 
+export async function listAdminFreelanceJobs(params: FreelanceJobParams = {}) {
+  return apiRequest<FreelanceJobPaginator<FreelanceJob>>(buildPath('/api/admin/freelance-jobs', params))
+}
+
 export async function createFreelanceJob(payload: CreateFreelanceJobPayload) {
   return apiRequest<FreelanceJobApiDataResponse<FreelanceJob>>('/api/freelance-jobs', {
     method: 'POST',
@@ -118,10 +122,41 @@ export async function deleteFreelanceJob(id: string) {
   })
 }
 
+export async function deleteAdminFreelanceJob(id: string) {
+  return apiRequest<FreelanceJobApiDataResponse<{ id: string }>>(`/api/admin/freelance-jobs/${id}`, {
+    method: 'DELETE',
+  })
+}
+
 export async function updateFreelanceJobStatus(id: string, status: FreelanceJobStatus) {
   return apiRequest<FreelanceJobApiDataResponse<FreelanceJob>>(`/api/freelance-jobs/${id}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
+  })
+}
+
+export async function updateAdminFreelanceJobStatus(id: string, status: FreelanceJobStatus) {
+  return apiRequest<FreelanceJobApiDataResponse<FreelanceJob>>(`/api/admin/freelance-jobs/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
+}
+
+export async function approveAdminFreelanceJob(id: string) {
+  return apiRequest<FreelanceJobApiDataResponse<FreelanceJob>>(`/api/admin/freelance-jobs/${id}/approve`, {
+    method: 'POST',
+  })
+}
+
+export async function suspendAdminFreelanceJob(id: string) {
+  return apiRequest<FreelanceJobApiDataResponse<FreelanceJob>>(`/api/admin/freelance-jobs/${id}/suspend`, {
+    method: 'POST',
+  })
+}
+
+export async function unsuspendAdminFreelanceJob(id: string) {
+  return apiRequest<FreelanceJobApiDataResponse<FreelanceJob>>(`/api/admin/freelance-jobs/${id}/unsuspend`, {
+    method: 'POST',
   })
 }
 
@@ -135,9 +170,15 @@ export async function listMyFreelanceApplications(params: Pick<FreelanceJobParam
 
 export default {
   listFreelanceJobs,
+  listAdminFreelanceJobs,
   createFreelanceJob,
   deleteFreelanceJob,
+  deleteAdminFreelanceJob,
   updateFreelanceJobStatus,
+  updateAdminFreelanceJobStatus,
+  approveAdminFreelanceJob,
+  suspendAdminFreelanceJob,
+  unsuspendAdminFreelanceJob,
   listMyFreelanceJobs,
   listMyFreelanceApplications,
 }

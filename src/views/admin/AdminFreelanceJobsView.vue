@@ -4,11 +4,16 @@ import { BriefcaseBusiness, Eye, Loader2, Plus, RefreshCw, Search, Trash2, X } f
 import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
 import {
+  approveAdminFreelanceJob,
   createFreelanceJob,
+  deleteAdminFreelanceJob,
   deleteFreelanceJob,
-  listFreelanceJobs,
+  listAdminFreelanceJobs,
   listMyFreelanceApplications,
   listMyFreelanceJobs,
+  suspendAdminFreelanceJob,
+  unsuspendAdminFreelanceJob,
+  updateAdminFreelanceJobStatus,
   updateFreelanceJobStatus,
   type FreelanceApplication,
   type FreelanceJob,
@@ -19,7 +24,7 @@ import {
 type Tab = 'public' | 'posted' | 'applications'
 
 const tabs: Array<{ label: string; value: Tab }> = [
-  { label: 'Public jobs', value: 'public' },
+  { label: 'All admin jobs', value: 'public' },
   { label: 'My posted', value: 'posted' },
   { label: 'Applications', value: 'applications' },
 ]
@@ -133,24 +138,28 @@ async function fetchRows() {
       page: page.value,
       per_page: perPage.value,
       q: query.value,
-      status: status.value,
+      status: activeTab.value === 'public' ? status.value || 'all' : status.value,
       sort: sort.value,
       skill: skill.value,
       location: location.value,
       type: type.value,
     }
 
-    const response = activeTab.value === 'public'
-      ? await listFreelanceJobs(params)
-      : activeTab.value === 'posted'
-        ? await listMyFreelanceJobs(params)
-        : await listMyFreelanceApplications({
+    let response
+
+    if (activeTab.value === 'public') {
+      response = await listAdminFreelanceJobs({ ...params, page: page.value, per_page: 100 })
+    } else if (activeTab.value === 'posted') {
+      response = await listMyFreelanceJobs(params)
+    } else {
+      response = await listMyFreelanceApplications({
           page: page.value,
           per_page: perPage.value,
           q: query.value,
           status: status.value,
           sort: sort.value,
         })
+    }
 
     if (activeTab.value === 'applications') {
       applications.value = response.data as FreelanceApplication[]
@@ -265,7 +274,7 @@ async function removeFreelanceJob(job: FreelanceJob) {
   deletingId.value = job.id
 
   try {
-    await deleteFreelanceJob(job.id)
+    await (activeTab.value === 'public' ? deleteAdminFreelanceJob(job.id) : deleteFreelanceJob(job.id))
     toast.success('Freelance job deleted')
     jobs.value = jobs.value.filter((item) => item.id !== job.id)
     total.value = Math.max(total.value - 1, 0)
@@ -281,7 +290,15 @@ async function changeFreelanceJobStatus(job: FreelanceJob, nextStatus: Freelance
   updatingStatusId.value = job.id
 
   try {
-    const response = await updateFreelanceJobStatus(job.id, nextStatus)
+    const response = activeTab.value === 'public'
+      ? nextStatus === 'approved'
+        ? await approveAdminFreelanceJob(job.id)
+        : nextStatus === 'suspended'
+          ? await suspendAdminFreelanceJob(job.id)
+          : nextStatus === 'active' || nextStatus === 'live'
+            ? await unsuspendAdminFreelanceJob(job.id)
+            : await updateAdminFreelanceJobStatus(job.id, nextStatus)
+      : await updateFreelanceJobStatus(job.id, nextStatus)
     jobs.value = jobs.value.map((item) => item.id === response.data.id ? response.data : item)
     if (viewingJob.value?.id === job.id) viewingJob.value = response.data
     toast.success(`Freelance job moved to ${formatLabel(nextStatus)}`)

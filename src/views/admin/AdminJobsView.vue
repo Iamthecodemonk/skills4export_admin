@@ -17,11 +17,13 @@ import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
 import { apiRequest } from '../../composables/useApi'
 import {
+  approveAdminFreelanceJob,
   createJob,
-  listFreelanceJobs,
+  listAdminFreelanceJobs,
   listAdminJobs,
-  listMyFreelanceJobs,
-  updateFreelanceJobStatus,
+  suspendAdminFreelanceJob,
+  unsuspendAdminFreelanceJob,
+  updateAdminFreelanceJobStatus,
   updateJobStatus,
   type FreelanceJob,
   type FreelanceJobStatus,
@@ -56,8 +58,6 @@ const statusOptions: Array<{ label: string; value: JobStatus | '' }> = [
   { label: 'Suspended', value: 'suspended' },
   { label: 'Deleted', value: 'deleted' },
 ]
-
-const adminFreelanceJobStatuses: FreelanceJobStatus[] = ['pending_review', 'approved', 'active', 'live', 'closed', 'archived', 'suspended', 'deleted']
 
 const typeOptions: Array<{ label: string; value: JobType | '' }> = [
   { label: 'All types', value: '' },
@@ -265,9 +265,7 @@ async function fetchJobs() {
 
     const response = activeFeedTab.value === 'regular'
       ? await fetchAdminRegularJobs(params)
-      : status.value
-        ? await fetchFreelanceJobStatus(params, status.value as FreelanceJobStatus)
-        : await fetchAllFreelanceJobStatuses(params)
+      : await fetchAdminFreelanceJobs(params)
 
     if (activeFeedTab.value === 'regular') {
       jobs.value = response.data as Job[] || []
@@ -336,36 +334,7 @@ async function fetchAdminRegularJobs(params: {
   }
 }
 
-async function fetchFreelanceJobStatus(params: {
-  page: number
-  per_page: number
-  q: string
-  status: string
-  sort: string
-  location: string
-  type: string
-  skill: string
-}, jobStatus: FreelanceJobStatus) {
-  const requestParams = {
-    ...params,
-    page: params.page,
-    per_page: params.per_page,
-    status: jobStatus,
-    type: type.value as FreelanceJobType | '',
-  }
-  const [publicResponse, postedResponse] = await Promise.all([
-    listFreelanceJobs(requestParams),
-    listMyFreelanceJobs(requestParams),
-  ])
-  const merged = paginateMergedJobs([...(publicResponse.data || []), ...(postedResponse.data || [])], params.page, params.per_page)
-
-  return {
-    ...publicResponse,
-    ...merged,
-  }
-}
-
-async function fetchAllFreelanceJobStatuses(params: {
+async function fetchAdminFreelanceJobs(params: {
   page: number
   per_page: number
   q: string
@@ -375,14 +344,15 @@ async function fetchAllFreelanceJobStatuses(params: {
   type: string
   skill: string
 }) {
-  const responses = await Promise.all(adminFreelanceJobStatuses.map((jobStatus) => fetchFreelanceJobStatus(params, jobStatus)))
-  const data = responses.flatMap((response) => response.data || [])
-  const merged = paginateMergedJobs(data, params.page, params.per_page)
-
-  return {
-    ...responses[0],
-    ...merged,
+  const requestParams = {
+    ...params,
+    page: params.page,
+    per_page: 100,
+    status: status.value || 'all',
+    type: type.value as FreelanceJobType | '',
   }
+  const response = await listAdminFreelanceJobs(requestParams)
+  return response
 }
 
 function switchFeedTab(tab: JobFeedTab) {
@@ -439,7 +409,13 @@ async function changeFreelanceJobStatus(job: FreelanceJob, nextStatus: Freelance
   actionMenuId.value = null
 
   try {
-    const response = await updateFreelanceJobStatus(job.id, nextStatus)
+    const response = nextStatus === 'approved'
+      ? await approveAdminFreelanceJob(job.id)
+      : nextStatus === 'suspended'
+        ? await suspendAdminFreelanceJob(job.id)
+        : nextStatus === 'active' || nextStatus === 'live'
+          ? await unsuspendAdminFreelanceJob(job.id)
+          : await updateAdminFreelanceJobStatus(job.id, nextStatus)
     freelanceJobs.value = freelanceJobs.value.map((item) => item.id === response.data.id ? response.data : item)
     if (viewingFreelanceJob.value?.id === job.id) viewingFreelanceJob.value = response.data
     toast.success(`Freelance job moved to ${formatLabel(nextStatus)}`)
