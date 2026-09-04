@@ -43,8 +43,13 @@ export type Post = {
   is_liked: boolean
   is_saved: boolean
   is_report: boolean
+  isReport?: boolean
   status?: string | null
   moderation_status?: string | null
+  moderationStatus?: string | null
+  reports_count?: number
+  reportsCount?: number
+  reports?: unknown[]
   type: string
   user: PostUser
   community: PostCommunity | null

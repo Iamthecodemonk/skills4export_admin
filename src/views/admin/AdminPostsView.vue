@@ -50,10 +50,12 @@ type ReportedPostWrapper = {
   targetId?: string
   primaryReportId?: string
   moderation_status?: string | null
+  moderationStatus?: string | null
   status?: string | null
   target?: Post
   data?: Post
   reports_count?: number
+  reportsCount?: number
   reports?: unknown[]
 }
 
@@ -65,8 +67,6 @@ type ReportedPostsResponse = {
   last_page?: number
   per_page?: number
 }
-
-const reportStatusBuckets = ['', 'reported', 'pending_review', 'approved', 'active', 'suspended', 'deleted']
 
 const props = withDefaults(defineProps<{
   reportedOnly?: boolean
@@ -175,8 +175,8 @@ const postStats = computed(() => [
 function reportedPostFromWrapper(item: ReportedPostWrapper): Post | null {
   const post = item.target || item.data
   if (!post) return null
-  const targetStatus = post.moderation_status || post.status
-  const reportStatus = item.moderation_status || item.status
+  const targetStatus = post.moderation_status || post.moderationStatus || post.status
+  const reportStatus = item.moderation_status || item.moderationStatus || item.status
   const resolvedTargetStatus = targetStatus === 'approved' || targetStatus === 'deleted' ? targetStatus : null
 
   return {
@@ -184,23 +184,25 @@ function reportedPostFromWrapper(item: ReportedPostWrapper): Post | null {
     id: item.targetId || post.id || item.id,
     status: resolvedTargetStatus || reportStatus || targetStatus,
     moderation_status: resolvedTargetStatus || reportStatus || targetStatus,
+    moderationStatus: resolvedTargetStatus || reportStatus || targetStatus,
+    reports_count: item.reports_count || item.reportsCount,
+    reports: item.reports,
     is_report: true,
   }
 }
 
-async function fetchReportedPostRows() {
-  const responses = await Promise.allSettled(reportStatusBuckets.map((status) => {
-    const search = new URLSearchParams({
-      page: String(page.value),
-      per_page: String(perPage.value),
-    })
+async function fetchReportedPostsResponse(params: { page?: number; per_page?: number } = {}) {
+  const searchParams = new URLSearchParams({
+    page: String(params.page || page.value),
+    per_page: String(params.per_page || perPage.value),
+  })
 
-    if (status) search.set('status', status)
+  return apiRequest<ReportedPostsResponse>(`/api/admin/reports/posts?${searchParams.toString()}`)
+}
 
-    return apiRequest<ReportedPostsResponse>(`/api/admin/reports/posts?${search.toString()}`)
-  }))
-
-  const rows = responses.flatMap((response) => response.status === 'fulfilled' ? response.value.data || [] : [])
+async function fetchReportedPostRows(params: { page?: number; per_page?: number } = {}) {
+  const response = await fetchReportedPostsResponse(params)
+  const rows = response.data || []
   const uniqueRows = Array.from(new Map(rows.map((row) => [row.targetId || row.target?.id || row.data?.id || row.id, row])).values())
 
   return uniqueRows
@@ -341,6 +343,7 @@ function setMediaIndex(post: Post, nextIndex: number) {
 
 function postStatus(post: Post) {
   if (post.moderation_status) return post.moderation_status
+  if (post.moderationStatus) return post.moderationStatus
   if (post.status) return post.status
   if (post.is_report) return 'reported'
   return post.type || 'active'
@@ -400,17 +403,19 @@ async function fetchPosts() {
 
   try {
     if (props.reportedOnly) {
-      const rows = await fetchReportedPostRows()
+      const response = await fetchReportedPostsResponse()
+      const rows = response.data || []
       const unresolvedReportedPosts = rows
         .map(reportedPostFromWrapper)
         .filter((post): post is Post => Boolean(post))
         .filter(shouldShowReportedBadge)
 
       posts.value = unresolvedReportedPosts
-      total.value = unresolvedReportedPosts.length
-      lastPage.value = 1
-      from.value = unresolvedReportedPosts.length ? 1 : null
-      to.value = unresolvedReportedPosts.length || null
+      total.value = response.total ?? unresolvedReportedPosts.length
+      lastPage.value = response.last_page || 1
+      perPage.value = response.per_page || perPage.value
+      from.value = response.from ?? (unresolvedReportedPosts.length ? 1 : null)
+      to.value = response.to ?? (unresolvedReportedPosts.length || null)
       return
     }
 
@@ -420,7 +425,7 @@ async function fetchPosts() {
         per_page: perPage.value,
         status: props.deletedOnly ? 'deleted' : 'approved,pending_review,active,suspended',
       }),
-      fetchReportedPostRows().catch(() => []),
+      fetchReportedPostRows({ page: 1, per_page: 100 }).catch(() => []),
     ])
 
     const reportedPosts = reportedRows.map(reportedPostFromWrapper).filter((post): post is Post => Boolean(post))
