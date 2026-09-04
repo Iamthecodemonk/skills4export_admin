@@ -60,6 +60,11 @@ type ReportedPostWrapper = {
   reports?: unknown[]
 }
 
+type ReportedPost = Post & {
+  targetId?: string
+  primaryReportId?: string
+}
+
 type ReportedPostsResponse = {
   data: ReportedPostWrapper[]
   total?: number
@@ -140,7 +145,7 @@ const filteredPosts = computed(() => {
   const status = statusFilter.value
 
   const sourcePosts = props.reportedOnly
-    ? posts.value.filter((post) => shouldShowReportedBadge(post))
+    ? posts.value
     : posts.value.filter((post) => props.deletedOnly ? isDeletedPost(post) : !isDeletedPost(post))
 
   const searched = sourcePosts.filter((post) => {
@@ -173,7 +178,7 @@ const postStats = computed(() => [
   { label: 'With media', value: posts.value.filter((post) => getPostMediaAssets(post).length > 0).length, detail: 'On this page', icon: ImageIcon },
 ])
 
-function reportedPostFromWrapper(item: ReportedPostWrapper): Post | null {
+function reportedPostFromWrapper(item: ReportedPostWrapper): ReportedPost | null {
   const post = postFromReportWrapper(item)
   if (!post) return null
   const targetStatus = post.moderation_status || post.moderationStatus || post.status
@@ -182,14 +187,16 @@ function reportedPostFromWrapper(item: ReportedPostWrapper): Post | null {
 
   return {
     ...post,
-    id: item.targetId || post.id || item.id,
+    id: post.id || item.targetId || item.id,
+    targetId: item.targetId || post.id || item.id,
+    primaryReportId: item.primaryReportId,
     status: resolvedTargetStatus || reportStatus || targetStatus,
     moderation_status: resolvedTargetStatus || reportStatus || targetStatus,
     moderationStatus: resolvedTargetStatus || reportStatus || targetStatus,
     reports_count: item.reports_count || item.reportsCount,
     reports: item.reports,
     is_report: true,
-  }
+  } as ReportedPost
 }
 
 function postFromReportWrapper(item: ReportedPostWrapper): Post | null {
@@ -403,6 +410,11 @@ function postModerationActionFromStatus(status: string): AdminPostModerationActi
   return 'unsuspend'
 }
 
+function postModerationId(post: Post) {
+  const reportedPost = post as ReportedPost
+  return reportedPost.targetId || reportedPost.id || post.id
+}
+
 function commentModerationActions(comment: PostComment): ModerationAction[] {
   const current = comment.status || (comment.is_report || comment.isReport ? 'reported' : 'active')
   const actions: ModerationAction[] = [
@@ -489,11 +501,12 @@ async function removePost(post: Post) {
 async function changePostStatus(post: Post, nextStatus: string) {
   if (props.reportedOnly) {
     const action = postModerationActionFromStatus(nextStatus)
+    const moderationId = postModerationId(post)
 
     updatingPostId.value = post.id
 
     try {
-      const response = await moderateAdminPost(post.id, action)
+      const response = await moderateAdminPost(moderationId, action)
       const updatedPost = response.data || { ...post, status: nextStatus, moderation_status: nextStatus, moderationStatus: nextStatus }
       posts.value = posts.value.map((item) => item.id === post.id ? updatedPost : item)
       if (viewingPost.value?.id === post.id) viewingPost.value = updatedPost
