@@ -17,6 +17,7 @@ type ReportedItem = {
   description?: string | null
   status?: string | null
   moderation_status?: string | null
+  moderationStatus?: string | null
   type?: string | null
   is_report?: boolean
   isReport?: boolean
@@ -27,17 +28,20 @@ type ReportedItem = {
   target?: ReportedItem | null
   data?: ReportedItem | null
   reports_count?: number
+  reportsCount?: number
   reports?: unknown[]
   [key: string]: unknown
 }
 
 type ReportedResponse = {
+  current_page?: number
   data?: ReportedItem[]
   total?: number
   from?: number | null
   to?: number | null
   last_page?: number
   per_page?: number
+  [key: string]: unknown
 }
 
 const props = withDefaults(defineProps<{
@@ -53,11 +57,16 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const updatingId = ref<string | null>(null)
 const viewingItem = ref<ReportedItem | null>(null)
-const reportStatusBuckets = ['', 'reported', 'pending_review', 'approved', 'active', 'suspended', 'deleted']
+const page = ref(1)
+const perPage = ref(20)
+const total = ref(0)
+const lastPage = ref(1)
+const from = ref<number | null>(null)
+const to = ref<number | null>(null)
 
 const filteredItems = computed(() => {
   const term = query.value.trim().toLowerCase()
-  const reported = items.value.filter((item) => item.is_report !== false && item.isReport !== false)
+  const reported = items.value
 
   if (!term) return reported
 
@@ -82,9 +91,15 @@ function itemAuthor(item: ReportedItem) {
 }
 
 function reportTarget(item: ReportedItem): ReportedItem {
-  if (item.target && typeof item.target === 'object') return item.target
+  if (item.target && typeof item.target === 'object' && !Array.isArray(item.target) && itemHasContent(item.target)) return item.target
+  if (item.data && typeof item.data === 'object' && !Array.isArray(item.data) && itemHasContent(item.data)) return item.data
+  if (item.target && typeof item.target === 'object' && !Array.isArray(item.target)) return item.target
   if (item.data && typeof item.data === 'object' && !Array.isArray(item.data)) return item.data
   return item
+}
+
+function itemHasContent(item: ReportedItem) {
+  return Boolean(item.id || item.title || item.name || item.content || item.body || item.description)
 }
 
 function formatKind(value: string) {
@@ -112,13 +127,13 @@ function reportType() {
   return props.kind
 }
 
-function reportActionPath(id: string, action: 'approve' | 'suspend' | 'unsuspend' | 'delete') {
-  return `/api/admin/reports/${reportType()}/${id}/${action}`
+function reportActionPath(id: string) {
+  return `/api/admin/reports/${reportType()}/${id}/moderate`
 }
 
 function targetStatus(item: ReportedItem) {
   const target = reportTarget(item)
-  return target.moderation_status || item.moderation_status || target.status || item.status || 'reported'
+  return target.moderation_status || target.moderationStatus || item.moderation_status || item.moderationStatus || target.status || item.status || 'reported'
 }
 
 function isSuspended(item: ReportedItem) {
@@ -137,14 +152,18 @@ async function fetchReportedItems() {
   error.value = null
 
   try {
-    const responses = await Promise.allSettled(reportStatusBuckets.map((status) => {
-      const search = new URLSearchParams()
-      if (status) search.set('status', status)
-      return apiRequest<ReportedResponse>(`/api/admin/reports/${props.kind}${search.toString() ? `?${search.toString()}` : ''}`)
-    }))
+    const searchParams = new URLSearchParams({
+      page: String(page.value),
+      per_page: String(perPage.value),
+    })
+    const response = await apiRequest<ReportedResponse>(`/api/admin/reports/${props.kind}?${searchParams.toString()}`)
 
-    const loadedItems = responses.flatMap((response) => response.status === 'fulfilled' ? response.value.data || [] : [])
-    items.value = Array.from(new Map(loadedItems.map((item) => [itemKey(item), item])).values())
+    items.value = response.data || []
+    total.value = response.total || 0
+    lastPage.value = response.last_page || 1
+    perPage.value = response.per_page || perPage.value
+    from.value = response.from ?? null
+    to.value = response.to ?? null
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Unable to load reported items'
     items.value = []
@@ -159,23 +178,22 @@ async function moderateItem(item: ReportedItem, action: 'approve' | 'suspend' | 
 
   try {
     const status = nextLocalStatus(action)
-    await apiRequest(reportActionPath(id, action), {
-      method: 'POST',
+    await apiRequest(reportActionPath(id), {
+      method: 'PATCH',
+      body: JSON.stringify({ action }),
     })
 
-    if (status === 'deleted') {
-      items.value = items.value.filter((entry) => itemKey(entry) !== id)
-      if (viewingItem.value && itemKey(viewingItem.value) === id) {
-        viewingItem.value = null
-      }
-    } else {
-      items.value = items.value.map((entry) => {
-        const entryTarget = reportTarget(entry)
-        if (itemKey(entry) !== id) return entry
-        if (entry.target) return { ...entry, moderation_status: status, target: { ...entryTarget, status, moderation_status: status } }
-        if (entry.data) return { ...entry, moderation_status: status, data: { ...entryTarget, status, moderation_status: status } }
-        return { ...entry, status, moderation_status: status }
-      })
+    items.value = items.value.map((entry) => {
+      const entryTarget = reportTarget(entry)
+      if (itemKey(entry) !== id) return entry
+      if (entry.target) return { ...entry, moderation_status: status, moderationStatus: status, target: { ...entryTarget, status, moderation_status: status, moderationStatus: status } }
+      if (entry.data) return { ...entry, moderation_status: status, moderationStatus: status, data: { ...entryTarget, status, moderation_status: status, moderationStatus: status } }
+      return { ...entry, status, moderation_status: status, moderationStatus: status }
+    })
+
+    if (viewingItem.value && itemKey(viewingItem.value) === id) {
+      const updatedViewingItem = items.value.find((entry) => itemKey(entry) === id)
+      viewingItem.value = updatedViewingItem || viewingItem.value
     }
 
     toast.success(`${formatKind(props.kind)} moved to ${formatKind(status)}`)
@@ -191,10 +209,18 @@ function itemKey(item: ReportedItem) {
 }
 
 function reportCount(item: ReportedItem) {
-  return item.reports_count || item.reports?.length || 1
+  return item.reports_count || item.reportsCount || item.reports?.length || 1
 }
 
-watch(() => props.kind, fetchReportedItems)
+function goToPage(nextPage: number) {
+  page.value = Math.min(Math.max(nextPage, 1), lastPage.value)
+  fetchReportedItems()
+}
+
+watch(() => props.kind, () => {
+  page.value = 1
+  fetchReportedItems()
+})
 
 onMounted(() => {
   fetchReportedItems()
@@ -279,6 +305,14 @@ onMounted(() => {
             </button>
           </div>
         </article>
+      </div>
+
+      <div v-if="!loading && !error && filteredItems.length > 0" class="flex flex-col gap-3 border-t border-[color:var(--border-soft)] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <p class="text-sm text-[var(--text-secondary)]">Page {{ page }} of {{ lastPage }} / {{ from || 0 }}-{{ to || 0 }} of {{ total }}</p>
+        <div class="flex gap-2">
+          <button type="button" class="h-10 rounded-[0.85rem] border border-[color:var(--border-soft)] px-3 text-sm font-semibold text-[var(--text-secondary)] disabled:opacity-50" :disabled="page <= 1" @click="goToPage(page - 1)">Previous</button>
+          <button type="button" class="h-10 rounded-[0.85rem] border border-[color:var(--border-soft)] px-3 text-sm font-semibold text-[var(--text-secondary)] disabled:opacity-50" :disabled="page >= lastPage" @click="goToPage(page + 1)">Next</button>
+        </div>
       </div>
     </section>
 

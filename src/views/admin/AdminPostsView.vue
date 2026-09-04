@@ -174,7 +174,7 @@ const postStats = computed(() => [
 ])
 
 function reportedPostFromWrapper(item: ReportedPostWrapper): Post | null {
-  const post = item.target || item.data
+  const post = postFromReportWrapper(item)
   if (!post) return null
   const targetStatus = post.moderation_status || post.moderationStatus || post.status
   const reportStatus = item.moderation_status || item.moderationStatus || item.status
@@ -190,6 +190,16 @@ function reportedPostFromWrapper(item: ReportedPostWrapper): Post | null {
     reports: item.reports,
     is_report: true,
   }
+}
+
+function postFromReportWrapper(item: ReportedPostWrapper): Post | null {
+  if (item.target && postHasContent(item.target)) return item.target
+  if (item.data && postHasContent(item.data)) return item.data
+  return item.target || item.data || null
+}
+
+function postHasContent(post: Partial<Post>) {
+  return Boolean(post.id || post.title || post.content || post.created_at)
 }
 
 async function fetchReportedPostsResponse(params: { page?: number; per_page?: number } = {}) {
@@ -416,7 +426,6 @@ async function fetchPosts() {
       const unresolvedReportedPosts = rows
         .map(reportedPostFromWrapper)
         .filter((post): post is Post => Boolean(post))
-        .filter(shouldShowReportedBadge)
 
       posts.value = unresolvedReportedPosts
       total.value = response.total ?? unresolvedReportedPosts.length
@@ -484,19 +493,10 @@ async function changePostStatus(post: Post, nextStatus: string) {
     updatingPostId.value = post.id
 
     try {
-      await apiRequest(`/api/admin/reports/posts/${post.id}/${action}`, {
-        method: 'POST',
-      })
-
-      if (nextStatus === 'deleted') {
-        posts.value = posts.value.filter((item) => item.id !== post.id)
-        total.value = Math.max(total.value - 1, 0)
-        if (viewingPost.value?.id === post.id) viewingPost.value = null
-      } else {
-        const updatedPost = { ...post, status: nextStatus, moderation_status: nextStatus }
-        posts.value = posts.value.map((item) => item.id === post.id ? updatedPost : item)
-        if (viewingPost.value?.id === post.id) viewingPost.value = updatedPost
-      }
+      const response = await moderateAdminPost(post.id, action)
+      const updatedPost = response.data || { ...post, status: nextStatus, moderation_status: nextStatus, moderationStatus: nextStatus }
+      posts.value = posts.value.map((item) => item.id === post.id ? updatedPost : item)
+      if (viewingPost.value?.id === post.id) viewingPost.value = updatedPost
 
       toast.success(`Post moved to ${formatLabel(nextStatus)}`)
     } catch (err) {

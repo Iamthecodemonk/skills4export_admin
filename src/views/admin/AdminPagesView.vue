@@ -23,6 +23,8 @@ type Page = {
   isVerified: number
   isActive: number
   isApproved: number
+  moderation_status?: string | null
+  moderationStatus?: string | null
   approvalNotes?: string | null
   approvedAt?: string | null
   approvedBy?: string | null
@@ -153,7 +155,7 @@ function buildPagesPath() {
     per_page: String(perPage.value),
   })
 
-  return `/api/pages?${params.toString()}`
+  return `/api/admin/pages?${params.toString()}`
 }
 
 async function fetchCategories() {
