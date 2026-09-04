@@ -119,6 +119,8 @@ export type PostStatusResponse = {
   data: Post
 }
 
+export type AdminPostModerationAction = 'approve' | 'suspend' | 'unsuspend' | 'delete'
+
 export type ListPostCommentsResponse = {
   current_page?: number
   data: PostComment[]
@@ -195,6 +197,13 @@ export async function updatePostStatus(id: string, status: string) {
   })
 }
 
+export async function moderateAdminPost(id: string, action: AdminPostModerationAction) {
+  return apiRequest<PostStatusResponse>(`/api/admin/reports/posts/${id}/moderate`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action }),
+  })
+}
+
 export async function listPostComments(postId: string, params: { page?: number; per_page?: number } = {}) {
   const search = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
@@ -247,6 +256,7 @@ export default {
   listAdminPosts,
   createPost,
   deletePost,
+  moderateAdminPost,
   updatePostStatus,
   listPostComments,
   updatePostCommentStatus,

@@ -28,10 +28,11 @@ import {
   deletePostComment,
   listAdminPosts,
   listPostComments,
+  moderateAdminPost,
   reportPost,
   reportPostComment,
   updatePostCommentStatus,
-  updatePostStatus,
+  type AdminPostModerationAction,
   type Post,
   type PostComment,
   type PostMediaAsset,
@@ -385,6 +386,13 @@ function postModerationActions(post: Post): ModerationAction[] {
   return actions.filter((action) => action.status !== current)
 }
 
+function postModerationActionFromStatus(status: string): AdminPostModerationAction {
+  if (status === 'approved') return 'approve'
+  if (status === 'suspended') return 'suspend'
+  if (status === 'deleted') return 'delete'
+  return 'unsuspend'
+}
+
 function commentModerationActions(comment: PostComment): ModerationAction[] {
   const current = comment.status || (comment.is_report || comment.isReport ? 'reported' : 'active')
   const actions: ModerationAction[] = [
@@ -471,13 +479,7 @@ async function removePost(post: Post) {
 
 async function changePostStatus(post: Post, nextStatus: string) {
   if (props.reportedOnly) {
-    const action = nextStatus === 'approved'
-      ? 'approve'
-      : nextStatus === 'suspended'
-        ? 'suspend'
-        : nextStatus === 'deleted'
-          ? 'delete'
-          : 'unsuspend'
+    const action = postModerationActionFromStatus(nextStatus)
 
     updatingPostId.value = post.id
 
@@ -513,9 +515,10 @@ async function changePostStatus(post: Post, nextStatus: string) {
   updatingPostId.value = post.id
 
   try {
-    const response = await updatePostStatus(post.id, nextStatus)
-    posts.value = posts.value.map((item) => item.id === post.id ? response.data : item)
-    if (viewingPost.value?.id === post.id) viewingPost.value = response.data
+    const response = await moderateAdminPost(post.id, postModerationActionFromStatus(nextStatus))
+    const updatedPost = response.data || { ...post, status: nextStatus, moderation_status: nextStatus, moderationStatus: nextStatus }
+    posts.value = posts.value.map((item) => item.id === post.id ? updatedPost : item)
+    if (viewingPost.value?.id === post.id) viewingPost.value = updatedPost
     toast.success(`Post moved to ${formatLabel(nextStatus)}`)
   } catch (err) {
     toast.error(err instanceof Error ? err.message : 'Unable to update post')
