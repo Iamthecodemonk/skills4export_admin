@@ -278,6 +278,6 @@
   { "label": "Snowboarding", "value": "las la-snowboarding" },
   { "label": "Bullseye", "value": "las la-bullseye" },
   { "label": "Swimmer", "value": "las la-swimmer" },
-  { "label": "Universal Access", "value": "las la-universal-access" }
+  { "label": "Universal Access", "value": "las la-universal-access" },
   { "label": "Parachute Box", "value": "las la-parachute-box" }
 ]
