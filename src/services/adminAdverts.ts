@@ -39,6 +39,7 @@ export type Advert = {
   approvedBy: string | null
   textAbove: string | null
   textBelow: string | null
+  platform?: 'mobile' | 'web' | string | null
   status: AdvertStatus
   startsAt: string | null
   expiresAt: string | null
@@ -105,6 +106,8 @@ export type CreateAdvertPayload = {
   adText?: string
   ad_text?: string
   status?: AdvertStatus
+  platform?: 'mobile' | 'web'
+  device?: 'mobile' | 'web'
   startsAt?: string
   expiresAt?: string
 }

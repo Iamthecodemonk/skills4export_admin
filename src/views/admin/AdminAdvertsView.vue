@@ -30,14 +30,13 @@ import {
   type MediaJobResponse,
 } from '../../services'
 
-type AdminAdvertTab = 'adverts' | 'locations' | 'sites'
+type AdminAdvertTab = 'adverts' | 'locations'
 type AdvertDetailTab = 'preview' | 'owner' | 'meta'
 type PlacementKind = 'location' | 'site'
 
 const tabs: Array<{ label: string; value: AdminAdvertTab }> = [
   { label: 'Adverts', value: 'adverts' },
   { label: 'AD Location', value: 'locations' },
-  { label: 'AD Size', value: 'sites' },
 ]
 
 const advertStatuses: AdvertStatus[] = ['pending_review', 'approved', 'active', 'expired', 'suspended', 'deleted']
@@ -73,6 +72,7 @@ const uploadError = ref<string | null>(null)
 const uploadPreviewUrl = ref('')
 
 const optionName = ref('')
+const optionSize = ref('')
 const optionDescription = ref('')
 const optionStatus = ref<'active' | 'suspended' | 'deleted'>('active')
 const optionSaving = ref(false)
@@ -80,6 +80,7 @@ const optionError = ref<string | null>(null)
 const editingOption = ref<{ kind: PlacementKind; value: AdvertPlacementOption } | null>(null)
 
 const form = ref({
+  platform: 'web' as 'mobile' | 'web',
   locationId: '',
   siteId: '',
   duration: '24',
@@ -106,6 +107,8 @@ const advertStats = computed(() => [
 
 const visibleLocations = computed(() => locations.value.filter((item) => item.status === 'active'))
 const visibleSites = computed(() => sites.value.filter((item) => item.status === 'active'))
+const selectedLocation = computed(() => locations.value.find((item) => item.id === form.value.locationId) || null)
+const selectedLocationSize = computed(() => selectedLocation.value ? placementSize(selectedLocation.value) : '')
 
 function formatDate(value?: string | null) {
   if (!value) return 'Not available'
@@ -188,6 +191,17 @@ function placementName(value: unknown, fallbackId: string) {
   return fallbackId || 'Not set'
 }
 
+function placementSize(value: unknown) {
+  if (value && typeof value === 'object') {
+    if ('sizeLabel' in value && typeof value.sizeLabel === 'string') return value.sizeLabel
+    if ('size_label' in value && typeof value.size_label === 'string') return value.size_label
+    if ('size' in value && typeof value.size === 'string') return value.size
+    if ('description' in value && typeof value.description === 'string') return value.description
+  }
+
+  return ''
+}
+
 function advertLocationId(advert: Advert) {
   return advert.locationId || advert.pageLocationId || advert.page_location_id || ''
 }
@@ -200,16 +214,45 @@ function advertSizeName(advert: Advert) {
   return placementName(advert.adSize || advert.ad_size || advert.site, advertSizeId(advert))
 }
 
-function buildAdvertPayload() {
-  if (!form.value.locationId || !form.value.siteId || !String(form.value.duration).trim()) {
-    throw new Error('Location, site, and duration are required')
+async function resolveAdvertSizeId() {
+  if (form.value.siteId) return form.value.siteId
+
+  const size = selectedLocationSize.value.trim()
+  if (!size) {
+    throw new Error('Selected AD location must have a size')
+  }
+
+  const existingSize = sites.value.find((item) => placementName(item, item.id).toLowerCase() === size.toLowerCase() || placementSize(item).toLowerCase() === size.toLowerCase())
+  if (existingSize) {
+    form.value.siteId = existingSize.id
+    return existingSize.id
+  }
+
+  const response = await createAdvertSite({
+    name: size,
+    sizeLabel: size,
+    size_label: size,
+    status: 'active',
+  })
+  sites.value = [response.data, ...sites.value]
+  form.value.siteId = response.data.id
+  return response.data.id
+}
+
+async function buildAdvertPayload() {
+  const resolvedSiteId = await resolveAdvertSizeId()
+
+  if (!form.value.locationId || !resolvedSiteId || !String(form.value.duration).trim()) {
+    throw new Error('Location, size, and duration are required')
   }
 
   return {
+    platform: form.value.platform,
+    device: form.value.platform,
     page_location_id: form.value.locationId.trim(),
     locationId: form.value.locationId.trim(),
-    ad_size_id: form.value.siteId.trim(),
-    adSizeId: form.value.siteId.trim(),
+    ad_size_id: resolvedSiteId,
+    adSizeId: resolvedSiteId,
     duration: form.value.duration.trim(),
     duration_hours: form.value.duration.trim(),
     durationHours: form.value.duration.trim(),
@@ -235,6 +278,7 @@ function buildAdvertPayload() {
 
 function resetAdvertForm() {
   form.value = {
+    platform: 'web',
     locationId: '',
     siteId: '',
     duration: '24',
@@ -326,7 +370,7 @@ async function createNewAdvert() {
   creating.value = true
 
   try {
-    await createAdvert(buildAdvertPayload())
+    await createAdvert(await buildAdvertPayload())
     toast.success('Advert created')
     resetAdvertForm()
     showCreateForm.value = false
@@ -372,6 +416,7 @@ function openEditAdvert(advert: Advert) {
   viewingAdvert.value = advert
   advertDetailTab.value = 'meta'
   form.value = {
+    platform: (advert.platform === 'mobile' ? 'mobile' : 'web') as 'mobile' | 'web',
     locationId: advertLocationId(advert),
     siteId: advertSizeId(advert),
     duration: String(advert.durationHours || advert.duration_hours || advert.duration || ''),
@@ -459,7 +504,7 @@ async function saveAdvertEdits() {
   creating.value = true
 
   try {
-    const response = await updateAdvert(viewingAdvert.value.id, buildAdvertPayload())
+    const response = await updateAdvert(viewingAdvert.value.id, await buildAdvertPayload())
     adverts.value = adverts.value.map((item) => item.id === response.data.id ? response.data : item)
     viewingAdvert.value = response.data
     showCreateForm.value = false
@@ -489,6 +534,7 @@ async function removeAdvert(advert: Advert) {
 
 function resetOptionForm() {
   optionName.value = ''
+  optionSize.value = ''
   optionDescription.value = ''
   optionStatus.value = 'active'
   optionError.value = null
@@ -498,6 +544,7 @@ function resetOptionForm() {
 function editOption(kind: PlacementKind, value: AdvertPlacementOption) {
   editingOption.value = { kind, value }
   optionName.value = value.name
+  optionSize.value = placementSize(value)
   optionDescription.value = value.description || ''
   optionStatus.value = value.status
   optionError.value = null
@@ -509,13 +556,20 @@ async function saveOption(kind: PlacementKind) {
     return
   }
 
+  if (kind === 'location' && !optionSize.value.trim()) {
+    optionError.value = 'Size is required'
+    return
+  }
+
   optionSaving.value = true
   optionError.value = null
 
   try {
     const payload = {
       name: optionName.value.trim(),
-      description: optionDescription.value.trim() || undefined,
+      description: kind === 'location' ? optionSize.value.trim() : optionDescription.value.trim() || undefined,
+      sizeLabel: kind === 'location' ? optionSize.value.trim() : optionName.value.trim(),
+      size_label: kind === 'location' ? optionSize.value.trim() : optionName.value.trim(),
       status: optionStatus.value,
     }
 
@@ -643,10 +697,17 @@ onMounted(async () => {
 
         <div class="mt-5 grid gap-4 md:grid-cols-3">
           <div>
+            <label class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Advert option</label>
+            <select v-model="form.platform" class="h-11 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm outline-none focus:border-[var(--accent)]">
+              <option value="mobile">Mobile</option>
+              <option value="web">Web</option>
+            </select>
+          </div>
+          <div>
             <label class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Page Location</label>
-            <select v-model="form.locationId" class="h-11 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm outline-none focus:border-[var(--accent)]">
+            <select v-model="form.locationId" class="h-11 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm outline-none focus:border-[var(--accent)]" @change="form.siteId = ''">
               <option value="">Select AD location</option>
-              <option v-for="location in visibleLocations" :key="location.id" :value="location.id">{{ location.name }}</option>
+              <option v-for="location in visibleLocations" :key="location.id" :value="location.id">{{ location.name }}{{ placementSize(location) ? ` - ${placementSize(location)}` : '' }}</option>
             </select>
           </div>
           <div>
@@ -655,10 +716,7 @@ onMounted(async () => {
           </div>
           <div>
             <label class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">AD Size</label>
-            <select v-model="form.siteId" class="h-11 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm outline-none focus:border-[var(--accent)]">
-              <option value="">Select AD size</option>
-              <option v-for="site in visibleSites" :key="site.id" :value="site.id">{{ placementName(site, site.id) }}</option>
-            </select>
+            <input :value="selectedLocationSize || 'Select a location first'" readonly class="h-11 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--text-secondary)] outline-none" />
           </div>
           <div>
             <label class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Upload image</label>
@@ -739,10 +797,6 @@ onMounted(async () => {
               <select v-model="locationId" class="h-10 rounded-[0.85rem] border border-transparent bg-[var(--search-bg)] px-3 text-sm outline-none focus:border-[var(--accent)]" @change="applyFilters">
                 <option value="">All locations</option>
                 <option v-for="location in visibleLocations" :key="location.id" :value="location.id">{{ location.name }}</option>
-              </select>
-              <select v-model="siteId" class="h-10 rounded-[0.85rem] border border-transparent bg-[var(--search-bg)] px-3 text-sm outline-none focus:border-[var(--accent)]" @change="applyFilters">
-                <option value="">All sizes</option>
-                <option v-for="site in visibleSites" :key="site.id" :value="site.id">{{ placementName(site, site.id) }}</option>
               </select>
               <button type="button" class="h-10 rounded-[0.85rem] border border-[color:var(--border-soft)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)]" @click="applyFilters">Apply</button>
             </div>
@@ -863,10 +917,14 @@ onMounted(async () => {
 
     <template v-else>
       <section class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
-        <form class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]" @submit.prevent="saveOption(activeTab === 'locations' ? 'location' : 'site')">
+        <form class="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(12rem,18rem)_auto]" @submit.prevent="saveOption('location')">
           <label>
-            <span class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">{{ activeTab === 'locations' ? 'AD Location' : 'AD Size' }}</span>
-            <input v-model="optionName" class="h-11 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm outline-none focus:border-[var(--accent)]" :placeholder="activeTab === 'locations' ? 'enter AD page locations, e.g - Feeds, home page' : '299x500, 299x300...'" />
+            <span class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">AD Location</span>
+            <input v-model="optionName" class="h-11 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm outline-none focus:border-[var(--accent)]" placeholder="enter AD page locations, e.g - Feeds, home page" />
+          </label>
+          <label>
+            <span class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">AD Size</span>
+            <input v-model="optionSize" class="h-11 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm outline-none focus:border-[var(--accent)]" placeholder="299x500, 299x300..." />
           </label>
           <div class="flex gap-2">
             <button type="submit" class="mt-7 inline-flex h-11 items-center justify-center gap-2 rounded-[0.85rem] bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-70" :disabled="optionSaving">
@@ -881,23 +939,25 @@ onMounted(async () => {
 
       <section class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)]">
         <div class="border-b border-[color:var(--border-soft)] p-4">
-          <h2 class="font-display text-base font-semibold text-[var(--text-primary)]">{{ activeTab === 'locations' ? 'Maintain AD Location' : 'Maintain AD Size' }}</h2>
-          <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ activeTab === 'locations' ? locations.length : sites.length }} records</p>
+          <h2 class="font-display text-base font-semibold text-[var(--text-primary)]">Maintain AD Location</h2>
+          <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ locations.length }} records</p>
         </div>
         <div class="app-scroll overflow-x-auto">
           <table class="w-full min-w-[42rem] text-left text-sm">
             <thead class="border-b border-[color:var(--border-soft)] text-[0.72rem] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
               <tr>
-                <th class="px-4 py-3 font-semibold">{{ activeTab === 'locations' ? 'Location ID' : '#' }}</th>
-                <th class="px-4 py-3 font-semibold">{{ activeTab === 'locations' ? 'AD location' : 'AD Size' }}</th>
+                <th class="px-4 py-3 font-semibold">Location ID</th>
+                <th class="px-4 py-3 font-semibold">AD location</th>
+                <th class="px-4 py-3 font-semibold">AD Size</th>
                 <th class="px-4 py-3 font-semibold">Status</th>
                 <th class="px-4 py-3 text-right font-semibold">Action</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-[color:var(--border-soft)]">
-              <tr v-for="(option, index) in activeTab === 'locations' ? locations : sites" :key="option.id">
-                <td class="px-4 py-3 font-mono text-xs text-[var(--text-secondary)]">{{ activeTab === 'locations' ? option.id : index + 1 }}</td>
+              <tr v-for="option in locations" :key="option.id">
+                <td class="px-4 py-3 font-mono text-xs text-[var(--text-secondary)]">{{ option.id }}</td>
                 <td class="px-4 py-3 font-semibold text-[var(--text-primary)]">{{ placementName(option, option.id) }}</td>
+                <td class="px-4 py-3 text-[var(--text-secondary)]">{{ placementSize(option) || 'Not set' }}</td>
                 <td class="px-4 py-3"><StatusChip :tone="statusTone(option.status)">{{ option.status }}</StatusChip></td>
                 <td class="px-4 py-3">
                   <details class="relative flex justify-end">
@@ -906,9 +966,10 @@ onMounted(async () => {
                       <MoreHorizontal v-else class="h-4 w-4" />
                     </summary>
                     <div class="absolute right-0 top-10 z-20 w-44 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-1 shadow-lg">
-                      <button type="button" class="flex h-9 w-full items-center gap-2 rounded-[0.65rem] px-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50" @click="removeOption(activeTab === 'locations' ? 'location' : 'site', option)"><Trash2 class="h-4 w-4" />Delete</button>
-                      <button v-if="option.status !== 'suspended'" type="button" class="flex h-9 w-full items-center gap-2 rounded-[0.65rem] px-3 text-left text-sm font-semibold text-amber-700 hover:bg-amber-50" @click="changeOptionStatus(activeTab === 'locations' ? 'location' : 'site', option, 'suspended')"><Ban class="h-4 w-4" />Suspend</button>
-                      <button v-else type="button" class="flex h-9 w-full items-center gap-2 rounded-[0.65rem] px-3 text-left text-sm font-semibold text-emerald-700 hover:bg-emerald-50" @click="changeOptionStatus(activeTab === 'locations' ? 'location' : 'site', option, 'active')"><RotateCcw class="h-4 w-4" />Unsuspend</button>
+                      <button type="button" class="flex h-9 w-full items-center gap-2 rounded-[0.65rem] px-3 text-left text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]" @click="editOption('location', option)"><Edit2 class="h-4 w-4" />Edit</button>
+                      <button type="button" class="flex h-9 w-full items-center gap-2 rounded-[0.65rem] px-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50" @click="removeOption('location', option)"><Trash2 class="h-4 w-4" />Delete</button>
+                      <button v-if="option.status !== 'suspended'" type="button" class="flex h-9 w-full items-center gap-2 rounded-[0.65rem] px-3 text-left text-sm font-semibold text-amber-700 hover:bg-amber-50" @click="changeOptionStatus('location', option, 'suspended')"><Ban class="h-4 w-4" />Suspend</button>
+                      <button v-else type="button" class="flex h-9 w-full items-center gap-2 rounded-[0.65rem] px-3 text-left text-sm font-semibold text-emerald-700 hover:bg-emerald-50" @click="changeOptionStatus('location', option, 'active')"><RotateCcw class="h-4 w-4" />Unsuspend</button>
                     </div>
                   </details>
                 </td>
