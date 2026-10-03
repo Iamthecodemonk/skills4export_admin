@@ -241,8 +241,9 @@ async function resolveAdvertSizeId() {
 
 async function buildAdvertPayload() {
   const resolvedSiteId = await resolveAdvertSizeId()
+  const durationValue = String(form.value.duration).trim()
 
-  if (!form.value.locationId || !resolvedSiteId || !String(form.value.duration).trim()) {
+  if (!form.value.locationId || !resolvedSiteId || !durationValue) {
     throw new Error('Location, size, and duration are required')
   }
 
@@ -253,9 +254,9 @@ async function buildAdvertPayload() {
     locationId: form.value.locationId.trim(),
     ad_size_id: resolvedSiteId,
     adSizeId: resolvedSiteId,
-    duration: form.value.duration.trim(),
-    duration_hours: form.value.duration.trim(),
-    durationHours: form.value.duration.trim(),
+    duration: durationValue,
+    duration_hours: durationValue,
+    durationHours: durationValue,
     imageUrl: form.value.imageUrl.trim() || undefined,
     image_path: form.value.imageUrl.trim() || undefined,
     imagePath: form.value.imageUrl.trim() || undefined,
