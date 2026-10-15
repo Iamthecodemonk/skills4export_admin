@@ -51,9 +51,9 @@ try {
   assert.ok(html.includes('Post audit'))
   assert.ok(!html.includes('Manage admin users'))
 
-  localStorage.setItem('admin-token', 'super-admin')
   response.body = { success: true, data: { isAdmin: true, isSuperAdmin: true } }
-  await access.loadAdminAccess()
+  await access.loadAdminAccess(true)
+  assert.equal(access.adminAccess.value.isSuperAdmin, true, 'Retry must pick up permissions granted to the same token')
   html = await render(configuration)
   assert.ok(html.includes('Create unit'))
   assert.ok(html.includes('Save assignments'))
@@ -85,6 +85,9 @@ try {
   response = { status: 403, body: { success: false, error: { code: 'forbidden' } } }
   await assert.rejects(access.loadAdminAccess())
   assert.equal(access.adminAccess.value.isSuperAdmin, false)
+  assert.equal(access.adminAccess.value.isAdmin, false)
+  response = { status: 200, body: { success: true, data: { id: 'legacy-user' } } }
+  await assert.rejects(access.loadAdminAccess(true), /permissions endpoint returned an invalid response/)
   assert.equal(access.adminAccess.value.isAdmin, false)
   response = { status: 401, body: { success: false, error: { code: 'unauthorized' } } }
   await assert.rejects(audit.listAuditUnits())

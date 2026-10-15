@@ -8,15 +8,19 @@ let pendingToken: string | null = null
 
 export const adminAccess = readonly(access)
 
-export async function loadAdminAccess() {
+export async function loadAdminAccess(force = false) {
   const token = getAuthToken()
-  if (loadedToken === token && token) return
+  if (!force && loadedToken === token && token) return
   if (pending && pendingToken === token) return pending
+  loadedToken = null
   access.value = { isAdmin: false, isSuperAdmin: false }
   pendingToken = token
   const request = apiRequest<{ data: { isAdmin: boolean; isSuperAdmin: boolean } }>('/api/admin/users/me')
     .then(({ data }) => {
       if (getAuthToken() !== token) return
+      if (typeof data?.isAdmin !== 'boolean' || typeof data?.isSuperAdmin !== 'boolean') {
+        throw new Error('The permissions endpoint returned an invalid response. Deploy the admin permissions API before using these pages.')
+      }
       access.value = { isAdmin: data.isAdmin === true, isSuperAdmin: data.isAdmin === true && data.isSuperAdmin === true }
       loadedToken = token
     })

@@ -29,8 +29,8 @@ const router = createRouter({
   routes: [
     { path: '/admin/access-denied', component: () => import('../views/admin/AdminAccessDeniedView.vue'), meta: { layout: 'app', requiresAuth: true } },
     { path: '/admin/admin-users', name: 'Manage admin users', component: () => import('../views/admin/AdminAccountsView.vue'), meta: { layout: 'app', requiresAuth: true, superAdmin: true } },
-    { path: '/admin/post-audit', name: 'Post audit', component: () => import('../views/admin/AdminPostAuditView.vue'), meta: { layout: 'app', requiresAuth: true } },
-    { path: '/admin/post-audit/units/:unitId', name: 'Audit unit review', component: () => import('../views/admin/AdminAuditReviewView.vue'), meta: { layout: 'app', requiresAuth: true } },
+    { path: '/admin/post-audit', name: 'Post audit', component: () => import('../views/admin/AdminPostAuditView.vue'), meta: { layout: 'app', requiresAuth: true, adminAccess: true } },
+    { path: '/admin/post-audit/units/:unitId', name: 'Audit unit review', component: () => import('../views/admin/AdminAuditReviewView.vue'), meta: { layout: 'app', requiresAuth: true, adminAccess: true } },
     {
       path: '/',
       redirect: '/admin',
@@ -229,17 +229,32 @@ router.beforeEach(async (to, from, next) => {
   }
 
   if (needsAuth && to.path !== '/admin/access-denied') {
+    const requiresVerifiedAccess = !!(to.meta.adminAccess || to.meta.superAdmin)
     try {
       await loadAdminAccess()
-      if (!adminAccess.value.isAdmin || (to.meta.superAdmin && !adminAccess.value.isSuperAdmin)) {
-        next('/admin/access-denied')
+      if (requiresVerifiedAccess && (!adminAccess.value.isAdmin || (to.meta.superAdmin && !adminAccess.value.isSuperAdmin))) {
+        next({ path: '/admin/access-denied', query: {
+          returnTo: to.fullPath,
+          message: to.meta.superAdmin && adminAccess.value.isAdmin
+            ? 'This page requires superadmin access. The server identifies your current account as an ordinary admin.'
+            : 'The server has not granted admin access to your current account.',
+        } })
         return
       }
     } catch (error) {
-      next(error instanceof ApiError && error.status === 401
-        ? '/auth/login'
-        : { path: '/admin/access-denied', query: { message: error instanceof Error ? error.message : 'Unable to verify access. Please try again.' } })
-      return
+      if (error instanceof ApiError && error.status === 401) {
+        next('/auth/login')
+        return
+      }
+      if (requiresVerifiedAccess) {
+        next({ path: '/admin/access-denied', query: {
+          returnTo: to.fullPath,
+          message: error instanceof ApiError && error.status === 403
+            ? 'The permissions endpoint denied access for your current account (403).'
+            : `Unable to verify permissions using /api/admin/users/me${error instanceof ApiError ? ` (HTTP ${error.status})` : ''}: ${error instanceof Error ? error.message : 'Please try again.'}`,
+        } })
+        return
+      }
     }
   }
 
