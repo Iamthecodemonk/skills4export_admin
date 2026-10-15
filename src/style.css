@@ -1,6 +1,31 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
 @import "tailwindcss";
 
+.audit-panel {
+  padding: 1.25rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 1rem;
+  background: var(--surface-primary);
+}
+.audit-page label { display: block; font-size: 0.875rem; font-weight: 600; }
+.audit-page input:not([type='checkbox']), .audit-page textarea, .audit-page select {
+  display: block; width: 100%; margin-top: 0.4rem; padding: 0.65rem 0.8rem;
+  border: 1px solid var(--border-soft); border-radius: 0.65rem;
+  background: var(--surface-secondary); color: var(--text-primary);
+}
+.audit-page .audit-check { display: flex; align-items: center; gap: 0.6rem; }
+.audit-page input[type='checkbox'] { width: 1rem; height: 1rem; accent-color: var(--accent); }
+.audit-button {
+  display: inline-flex; align-items: center; justify-content: center; padding: 0.55rem 0.85rem;
+  border: 1px solid var(--border-soft); border-radius: 0.65rem; font-size: 0.875rem;
+  font-weight: 600; background: var(--surface-secondary); color: var(--text-primary); cursor: pointer;
+}
+.audit-button:hover, .audit-selected { background: var(--accent); color: white; }
+.audit-button:disabled { opacity: 0.5; cursor: not-allowed; }
+.audit-button:focus-visible, .audit-page input:focus-visible, .audit-page select:focus-visible, .audit-page textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.audit-error { color: var(--danger); border: 1px solid var(--danger); border-radius: 0.65rem; padding: 0.85rem; }
+.audit-page th, .audit-page td { padding: 0.75rem; border-bottom: 1px solid var(--border-soft); }
+
 @theme {
   --font-sans: Inter, "Plus Jakarta Sans", "Segoe UI", sans-serif;
   --font-display: "Plus Jakarta Sans", Inter, "Segoe UI", sans-serif;

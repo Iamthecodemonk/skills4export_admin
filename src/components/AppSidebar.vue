@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-vue-next'
 import { logout } from '../composables/useAuth'
+import { adminAccess } from '../composables/useAdminAccess'
 
 defineProps<{
   open: boolean
@@ -40,14 +41,15 @@ const commentsOpen = ref(route.path.startsWith('/admin/reported-comments'))
 const pagesOpen = ref(route.path.startsWith('/admin/page') || route.path.startsWith('/admin/reported-pages'))
 const managementOpen = ref(route.path.startsWith('/admin/legal-documents'))
 
-const adminLinks = [
+const adminLinks = computed(() => [
   { label: 'HOME', to: '/admin', icon: LayoutDashboard },
   { label: 'Manage users', to: '/admin/users', icon: Users },
   { label: 'Manage freelancers', to: '/admin/freelancers', icon: UserRoundCheck },
   { label: 'Manage adverts', to: '/admin/adverts', icon: Megaphone },
   { label: 'Manage contest', to: '/admin/contest', icon: Trophy },
-  { label: 'Manage admin users', to: '/admin/admin-users', icon: ShieldCheck },
-]
+  ...(adminAccess.value.isAdmin ? [{ label: 'Post audit', to: '/admin/post-audit', icon: ClipboardCheck }] : []),
+  ...(adminAccess.value.isSuperAdmin ? [{ label: 'Manage admin users', to: '/admin/admin-users', icon: ShieldCheck }] : []),
+])
 
 const managementLinks = [
   { label: 'Legal documents', to: '/admin/legal-documents' },

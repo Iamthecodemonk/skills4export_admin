@@ -1,6 +1,7 @@
 type ApiErrorResponse = {
   error?: {
     message?: string
+    code?: string
   }
   message?: string
   data?: {
@@ -35,12 +36,21 @@ export function getApiErrorMessage(body: ApiErrorResponse): string {
     return body.message
   }
 
+  if (body.error?.code) return body.error.code.replace(/_/g, ' ')
+
   const firstFieldError = Object.values(body.data?.errors || {})[0]?.[0]
   if (firstFieldError) {
     return firstFieldError
   }
 
   return 'Unable to complete request'
+}
+
+export class ApiError extends Error {
+  constructor(message: string, public status: number, public code?: string) {
+    super(message)
+    this.name = 'ApiError'
+  }
 }
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -64,7 +74,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
 
   const body = await response.json().catch(() => ({}))
 
-  if (!response.ok) {
+  if (!response.ok || body.success === false) {
     if (response.status === 401) {
       localStorage.removeItem('admin-token')
       localStorage.removeItem('admin-user')
@@ -74,7 +84,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
       }
     }
 
-    throw new Error(getApiErrorMessage(body))
+    throw new ApiError(response.status === 403 ? `Access denied: ${getApiErrorMessage(body)}` : getApiErrorMessage(body), response.status, body.error?.code)
   }
 
   return body as T

@@ -17,15 +17,20 @@ import AdminFreelanceJobsView from '../views/admin/AdminFreelanceJobsView.vue'
 import AdminAdvertsView from '../views/admin/AdminAdvertsView.vue'
 import AdminLegalDocumentsView from '../views/admin/AdminLegalDocumentsView.vue'
 import { isAuthenticated } from '../composables/useAuth'
+import { adminAccess, loadAdminAccess } from '../composables/useAdminAccess'
+import { ApiError } from '../composables/useApi'
 
 const adminPlaceholderRoutes = [
   { path: '/admin/contest', name: 'Manage contest', title: 'Manage contest' },
-  { path: '/admin/admin-users', name: 'Manage admin users', title: 'Manage admin users' },
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    { path: '/admin/access-denied', component: () => import('../views/admin/AdminAccessDeniedView.vue'), meta: { layout: 'app', requiresAuth: true } },
+    { path: '/admin/admin-users', name: 'Manage admin users', component: () => import('../views/admin/AdminAccountsView.vue'), meta: { layout: 'app', requiresAuth: true, superAdmin: true } },
+    { path: '/admin/post-audit', name: 'Post audit', component: () => import('../views/admin/AdminPostAuditView.vue'), meta: { layout: 'app', requiresAuth: true } },
+    { path: '/admin/post-audit/units/:unitId', name: 'Audit unit review', component: () => import('../views/admin/AdminAuditReviewView.vue'), meta: { layout: 'app', requiresAuth: true } },
     {
       path: '/',
       redirect: '/admin',
@@ -209,7 +214,7 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const needsAuth = !!to.meta.requiresAuth
   const authed = isAuthenticated()
 
@@ -221,6 +226,21 @@ router.beforeEach((to, from, next) => {
   if (to.path === '/auth/login' && authed) {
     next({ path: '/admin' })
     return
+  }
+
+  if (needsAuth && to.path !== '/admin/access-denied') {
+    try {
+      await loadAdminAccess()
+      if (!adminAccess.value.isAdmin || (to.meta.superAdmin && !adminAccess.value.isSuperAdmin)) {
+        next('/admin/access-denied')
+        return
+      }
+    } catch (error) {
+      next(error instanceof ApiError && error.status === 401
+        ? '/auth/login'
+        : { path: '/admin/access-denied', query: { message: error instanceof Error ? error.message : 'Unable to verify access. Please try again.' } })
+      return
+    }
   }
 
   next()
