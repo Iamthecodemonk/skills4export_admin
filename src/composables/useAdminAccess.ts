@@ -1,12 +1,14 @@
 import { readonly, ref } from 'vue'
-import { apiRequest, getAuthToken } from './useApi'
+import { ApiError, apiRequest, getAuthToken } from './useApi'
 
 const access = ref({ isAdmin: false, isSuperAdmin: false })
+const check = ref({ loading: false, checked: false, error: '' })
 let loadedToken: string | null = null
 let pending: Promise<void> | null = null
 let pendingToken: string | null = null
 
 export const adminAccess = readonly(access)
+export const adminAccessCheck = readonly(check)
 
 export async function loadAdminAccess(force = false) {
   const token = getAuthToken()
@@ -14,6 +16,7 @@ export async function loadAdminAccess(force = false) {
   if (pending && pendingToken === token) return pending
   loadedToken = null
   access.value = { isAdmin: false, isSuperAdmin: false }
+  check.value = { loading: true, checked: false, error: '' }
   pendingToken = token
   const request = apiRequest<{ data: { isAdmin: boolean; isSuperAdmin: boolean } }>('/api/admin/users/me')
     .then(({ data }) => {
@@ -23,7 +26,16 @@ export async function loadAdminAccess(force = false) {
       }
       access.value = { isAdmin: data.isAdmin === true, isSuperAdmin: data.isAdmin === true && data.isSuperAdmin === true }
       loadedToken = token
+      check.value.checked = true
+    })
+    .catch(error => {
+      if (getAuthToken() === token) {
+        check.value.error = error instanceof ApiError && error.status === 404
+          ? 'Account permissions are unavailable on the server (HTTP 404).'
+          : error instanceof Error ? error.message : 'Unable to check account permissions.'
+      }
+      throw error
     })
   pending = request
-  try { await request } finally { if (pending === request) pending = null }
+  try { await request } finally { if (pending === request) { pending = null; check.value.loading = false } }
 }

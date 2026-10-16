@@ -86,6 +86,14 @@ try {
   await assert.rejects(access.loadAdminAccess())
   assert.equal(access.adminAccess.value.isSuperAdmin, false)
   assert.equal(access.adminAccess.value.isAdmin, false)
+  html = await render(sidebar, { open: true })
+  assert.ok(html.includes('Access denied: forbidden'))
+  assert.ok(html.includes('Refresh permissions'))
+  assert.ok(!html.includes('href="/admin/post-audit"'))
+  response = { status: 404, body: { success: false, error: { code: 'not_found' } } }
+  await assert.rejects(access.loadAdminAccess(true))
+  html = await render(sidebar, { open: true })
+  assert.ok(html.includes('Account permissions are unavailable on the server (HTTP 404).'))
   response = { status: 200, body: { success: true, data: { id: 'legacy-user' } } }
   await assert.rejects(access.loadAdminAccess(true), /permissions endpoint returned an invalid response/)
   assert.equal(access.adminAccess.value.isAdmin, false)

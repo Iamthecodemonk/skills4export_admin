@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   BriefcaseBusiness,
@@ -20,7 +20,7 @@ import {
   X,
 } from 'lucide-vue-next'
 import { logout } from '../composables/useAuth'
-import { adminAccess } from '../composables/useAdminAccess'
+import { adminAccess, adminAccessCheck, loadAdminAccess } from '../composables/useAdminAccess'
 
 defineProps<{
   open: boolean
@@ -32,6 +32,10 @@ const emit = defineEmits<{
 
 const route = useRoute()
 const router = useRouter()
+async function refreshPermissions() {
+  try { await loadAdminAccess(true) } catch { /* The shared permission status displays the error. */ }
+}
+onMounted(() => { loadAdminAccess().catch(() => undefined) })
 const communitiesOpen = ref(route.path.startsWith('/admin/communit') || route.path.startsWith('/admin/admin-communities'))
 const postsOpen = ref(route.path.startsWith('/admin/posts') || route.path.startsWith('/admin/reported-posts') || route.path.startsWith('/admin/deleted-posts'))
 const jobsOpen = ref(route.path.startsWith('/admin/jobs') || route.path.startsWith('/admin/reported-jobs'))
@@ -150,6 +154,16 @@ async function handleLogout() {
         <button class="grid h-9 w-9 place-items-center rounded-full text-[var(--text-secondary)]" aria-label="Close sidebar" @click="$emit('close')">
           <X class="h-4 w-4" />
         </button>
+      </div>
+
+      <div class="mb-3 space-y-2 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] p-3 text-xs text-[var(--text-secondary)]" aria-label="Account permissions">
+        <p v-if="adminAccessCheck.loading" role="status">Checking account permissions…</p>
+        <p v-else-if="adminAccessCheck.error" role="alert" class="text-[var(--danger)]">{{ adminAccessCheck.error }} Audit and admin account pages require verified access.</p>
+        <p v-else-if="adminAccess.isSuperAdmin">Superadmin access · Audit and admin account pages enabled.</p>
+        <p v-else-if="adminAccess.isAdmin">Admin access · Audit enabled. Account management requires superadmin access.</p>
+        <p v-else-if="adminAccessCheck.checked">Your account has not been granted admin access. Audit and admin account pages are unavailable.</p>
+        <p v-else>Account permissions have not been verified.</p>
+        <button type="button" :disabled="adminAccessCheck.loading" class="font-semibold text-[var(--accent-strong)] underline disabled:opacity-50" @click="refreshPermissions">Refresh permissions</button>
       </div>
 
       <section>
