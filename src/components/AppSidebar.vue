@@ -43,7 +43,7 @@ const questionsOpen = ref(route.path.startsWith('/admin/questions') || route.pat
 const answersOpen = ref(route.path.startsWith('/admin/reported-answers'))
 const commentsOpen = ref(route.path.startsWith('/admin/reported-comments'))
 const pagesOpen = ref(route.path.startsWith('/admin/page') || route.path.startsWith('/admin/reported-pages'))
-const managementOpen = ref(route.path.startsWith('/admin/legal-documents'))
+const managementOpen = ref(route.path.startsWith('/admin/legal-documents') || route.path.startsWith('/admin/app-updates'))
 
 const adminLinks = computed(() => [
   { label: 'HOME', to: '/admin', icon: LayoutDashboard },
@@ -55,9 +55,10 @@ const adminLinks = computed(() => [
   ...(adminAccess.value.isSuperAdmin ? [{ label: 'Manage admin users', to: '/admin/admin-users', icon: ShieldCheck }] : []),
 ])
 
-const managementLinks = [
+const managementLinks = computed(() => [
   { label: 'Legal documents', to: '/admin/legal-documents' },
-]
+  ...(adminAccess.value.isSuperAdmin ? [{ label: 'App Updates', to: '/admin/app-updates' }] : []),
+])
 
 const communityLinks = [
   { label: 'Communities', to: '/admin/communities' },
@@ -123,7 +124,7 @@ const pagesActive = computed(() => {
 })
 
 const managementActive = computed(() => {
-  return managementLinks.some((link) => route.path === link.to)
+  return managementLinks.value.some((link) => route.path === link.to)
 })
 
 async function handleLogout() {

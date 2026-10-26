@@ -27,6 +27,7 @@ const adminPlaceholderRoutes = [
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    { path: '/admin/app-updates', name: 'App Updates', component: () => import('../views/admin/AdminAppUpdatesView.vue'), meta: { layout: 'app', requiresAuth: true, superAdmin: true } },
     { path: '/admin/access-denied', component: () => import('../views/admin/AdminAccessDeniedView.vue'), meta: { layout: 'app', requiresAuth: true } },
     { path: '/admin/admin-users', name: 'Manage admin users', component: () => import('../views/admin/AdminAccountsView.vue'), meta: { layout: 'app', requiresAuth: true, superAdmin: true } },
     { path: '/admin/post-audit', name: 'Post audit', component: () => import('../views/admin/AdminPostAuditView.vue'), meta: { layout: 'app', requiresAuth: true, adminAccess: true } },
