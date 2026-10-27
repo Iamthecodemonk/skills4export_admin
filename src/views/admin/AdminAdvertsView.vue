@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { Ban, Edit2, Eye, Image, Loader2, Megaphone, MoreHorizontal, RefreshCw, RotateCcw, Search, Trash2, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
+import { advertImageError, parseAdvertSize, readImageDimensions, type ImageDimensions } from '../../utils/advertImages'
 import {
   createAdvert,
   createAdvertLocation,
@@ -70,6 +71,11 @@ const previewImageUrl = ref('')
 const uploadingAdvertImage = ref(false)
 const uploadError = ref<string | null>(null)
 const uploadPreviewUrl = ref('')
+const imageDimensions = ref<ImageDimensions | null>(null)
+const validatingImage = ref(false)
+const imageValidationError = ref<string | null>(null)
+let imageCheckVersion = 0
+let uploadVersion = 0
 
 const optionName = ref('')
 const optionSize = ref('')
@@ -109,6 +115,36 @@ const visibleLocations = computed(() => locations.value.filter((item) => item.st
 const visibleSites = computed(() => sites.value.filter((item) => item.status === 'active'))
 const selectedLocation = computed(() => locations.value.find((item) => item.id === form.value.locationId) || null)
 const selectedLocationSize = computed(() => selectedLocation.value ? placementSize(selectedLocation.value) : '')
+const requiredImageSize = computed(() => parseAdvertSize(selectedLocationSize.value))
+const imageRequirementError = computed(() => {
+  if (!form.value.locationId) return 'Select an AD location before choosing an image.'
+  if (!requiredImageSize.value) return 'This AD location needs a valid size in width × height pixels, for example 299x500. Update it in AD Location.'
+  return null
+})
+const imageReady = computed(() => !!form.value.imageUrl && !!imageDimensions.value && !!requiredImageSize.value
+  && !imageValidationError.value && !validatingImage.value
+  && !advertImageError(requiredImageSize.value, imageDimensions.value))
+
+watch(() => [form.value.imageUrl, form.value.locationId, selectedLocationSize.value], async () => {
+  const version = ++imageCheckVersion
+  imageDimensions.value = null
+  imageValidationError.value = null
+  validatingImage.value = false
+  if (!form.value.imageUrl || imageRequirementError.value) return
+  const required = requiredImageSize.value!
+  validatingImage.value = true
+  try {
+    const dimensions = await readImageDimensions(form.value.imageUrl)
+    if (version !== imageCheckVersion) return
+    imageDimensions.value = dimensions
+    imageValidationError.value = advertImageError(required, dimensions)
+  } catch (err) {
+    if (version !== imageCheckVersion) return
+    imageValidationError.value = err instanceof Error ? err.message : 'Unable to validate advert image.'
+  } finally {
+    if (version === imageCheckVersion) validatingImage.value = false
+  }
+}, { flush: 'sync' })
 
 function formatDate(value?: string | null) {
   if (!value) return 'Not available'
@@ -215,8 +251,6 @@ function advertSizeName(advert: Advert) {
 }
 
 async function resolveAdvertSizeId() {
-  if (form.value.siteId) return form.value.siteId
-
   const size = selectedLocationSize.value.trim()
   if (!size) {
     throw new Error('Selected AD location must have a size')
@@ -240,6 +274,12 @@ async function resolveAdvertSizeId() {
 }
 
 async function buildAdvertPayload() {
+  if (imageRequirementError.value) throw new Error(imageRequirementError.value)
+  if (!imageReady.value) throw new Error(imageValidationError.value || 'Choose an image matching the required dimensions and wait for validation to finish.')
+  // Recheck the stored image before either create or edit reaches the API.
+  const dimensions = await readImageDimensions(form.value.imageUrl)
+  const dimensionError = advertImageError(requiredImageSize.value!, dimensions)
+  if (dimensionError) throw new Error(dimensionError)
   const resolvedSiteId = await resolveAdvertSizeId()
   const durationValue = String(form.value.duration).trim()
 
@@ -278,6 +318,8 @@ async function buildAdvertPayload() {
 }
 
 function resetAdvertForm() {
+  uploadVersion += 1
+  uploadingAdvertImage.value = false
   form.value = {
     platform: 'web',
     locationId: '',
@@ -360,6 +402,7 @@ function goToPage(nextPage: number) {
 }
 
 async function createNewAdvert() {
+  if (creating.value) return
   formError.value = null
 
   if (uploadingAdvertImage.value) {
@@ -414,6 +457,8 @@ async function changeAdvertStatus(advert: Advert, nextStatus: AdvertStatus) {
 }
 
 function openEditAdvert(advert: Advert) {
+  if (creating.value) return
+  resetAdvertForm()
   viewingAdvert.value = advert
   advertDetailTab.value = 'meta'
   form.value = {
@@ -463,12 +508,23 @@ async function uploadAdvertImage(event: Event) {
 
   if (!file) return
 
+  const version = ++uploadVersion
   uploadingAdvertImage.value = true
   uploadError.value = null
+  form.value.imageUrl = ''
+  form.value.imageMediaId = ''
+  uploadPreviewUrl.value = ''
 
   try {
+    if (imageRequirementError.value) throw new Error(imageRequirementError.value)
+    const dimensions = await readImageDimensions(file)
+    if (version !== uploadVersion) return
+    const dimensionError = advertImageError(requiredImageSize.value!, dimensions)
+    if (dimensionError) throw new Error(dimensionError)
     const signature = await getMediaSignature()
+    if (version !== uploadVersion) return
     const uploaded = await uploadImageToCloudinary(file, signature)
+    if (version !== uploadVersion) return
     const publicId = uploaded.public_id
 
     if (!publicId) {
@@ -477,22 +533,24 @@ async function uploadAdvertImage(event: Event) {
 
     const registered = await registerMedia(publicId, 'advert_image')
     const assetId = await pollMediaJobForAsset(registered.data.jobId)
+    if (version !== uploadVersion) return
 
     form.value.imageMediaId = assetId
     form.value.imageUrl = uploaded.secure_url || uploaded.url || form.value.imageUrl
     uploadPreviewUrl.value = uploaded.secure_url || uploaded.url || ''
     toast.success('Advert image uploaded')
   } catch (err) {
+    if (version !== uploadVersion) return
     uploadError.value = err instanceof Error ? err.message : 'Unable to upload advert image'
     toast.error(uploadError.value)
   } finally {
-    uploadingAdvertImage.value = false
+    if (version === uploadVersion) uploadingAdvertImage.value = false
     input.value = ''
   }
 }
 
 async function saveAdvertEdits() {
-  if (!viewingAdvert.value) return
+  if (!viewingAdvert.value || creating.value) return
 
   formError.value = null
 
@@ -559,6 +617,11 @@ async function saveOption(kind: PlacementKind) {
 
   if (kind === 'location' && !optionSize.value.trim()) {
     optionError.value = 'Size is required'
+    return
+  }
+
+  if (kind === 'location' && !parseAdvertSize(optionSize.value)) {
+    optionError.value = 'Enter a valid size in width × height pixels, for example 299x500. Both dimensions must be positive whole numbers.'
     return
   }
 
@@ -661,7 +724,7 @@ onMounted(async () => {
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
             Refresh
           </button>
-          <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]" @click="viewingAdvert = null; resetAdvertForm(); activeTab = 'adverts'">
+          <button type="button" :disabled="creating" class="inline-flex h-10 items-center justify-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]" @click="viewingAdvert = null; resetAdvertForm(); activeTab = 'adverts'">
             <Megaphone class="h-4 w-4" />
             Create new advert
           </button>
@@ -696,7 +759,7 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div class="mt-5 grid gap-4 md:grid-cols-3">
+        <fieldset :disabled="creating || uploadingAdvertImage" class="mt-5 grid min-w-0 gap-4 md:grid-cols-3">
           <div>
             <label class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Advert option</label>
             <select v-model="form.platform" class="h-11 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm outline-none focus:border-[var(--accent)]">
@@ -723,18 +786,22 @@ onMounted(async () => {
             <label class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Upload image</label>
             <div class="flex min-h-11 items-center gap-3 rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 py-2">
               <div class="grid h-12 w-16 shrink-0 place-items-center overflow-hidden rounded-[0.65rem] border border-[color:var(--border-soft)] bg-[var(--surface-muted)]">
-                <img v-if="uploadPreviewUrl || form.imageUrl" :src="uploadPreviewUrl || form.imageUrl" alt="Advert upload preview" class="h-full w-full object-cover" />
+                <img v-if="uploadPreviewUrl || form.imageUrl" :src="uploadPreviewUrl || form.imageUrl" alt="Advert upload preview" class="h-full w-full object-contain" />
                 <Image v-else class="h-5 w-5 text-[var(--text-tertiary)]" />
               </div>
               <label class="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-[0.75rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)]">
                 <Loader2 v-if="uploadingAdvertImage" class="h-4 w-4 animate-spin" />
                 {{ uploadingAdvertImage ? 'Uploading...' : 'Choose file' }}
-                <input class="hidden" type="file" accept="image/*" :disabled="uploadingAdvertImage" @change="uploadAdvertImage" />
+                <input class="hidden" type="file" accept="image/*" :disabled="uploadingAdvertImage || !!imageRequirementError" @change="uploadAdvertImage" />
               </label>
             </div>
+            <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ imageRequirementError || `Required image: ${requiredImageSize!.width} × ${requiredImageSize!.height} pixels. Exact dimensions only.` }}</p>
             <p v-if="uploadError" class="mt-1 text-sm font-medium text-red-600">{{ uploadError }}</p>
             <p v-else-if="uploadingAdvertImage" class="mt-1 text-sm font-medium text-[var(--text-secondary)]">Image is uploading and processing. Submit will unlock when it is ready.</p>
-            <p v-else-if="form.imageMediaId" class="mt-1 text-sm font-medium text-emerald-600">Advert image is ready.</p>
+            <p v-else-if="validatingImage" class="mt-1 text-sm text-[var(--text-secondary)]" role="status">Checking image dimensions...</p>
+            <p v-else-if="imageValidationError" class="mt-1 text-sm font-medium text-red-600" role="alert">{{ imageValidationError }}</p>
+            <p v-else-if="imageReady" class="mt-1 text-sm font-medium text-emerald-600">Image dimensions verified. Ready to submit.</p>
+            <button v-if="form.imageUrl" type="button" class="mt-2 text-sm font-semibold text-[var(--accent-strong)] hover:underline" @click="previewImageUrl = form.imageUrl">Preview full image</button>
           </div>
           <div>
             <label class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Link URL</label>
@@ -756,13 +823,13 @@ onMounted(async () => {
             <label class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">AD text</label>
             <textarea v-model="form.textBelow" class="min-h-36 w-full resize-y rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 py-3 text-sm outline-none focus:border-[var(--accent)]" placeholder="Export smarter today"></textarea>
           </div>
-        </div>
+        </fieldset>
 
         <p v-if="formError" class="mt-4 rounded-[0.85rem] border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{{ formError }}</p>
 
         <div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" class="inline-flex h-11 items-center justify-center rounded-[0.85rem] border border-[color:var(--border-soft)] px-4 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)]" @click="viewingAdvert = null; resetAdvertForm()">Clear</button>
-          <button type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-strong)] disabled:cursor-wait disabled:opacity-70" :disabled="creating || uploadingAdvertImage">
+          <button type="button" :disabled="creating" class="inline-flex h-11 items-center justify-center rounded-[0.85rem] border border-[color:var(--border-soft)] px-4 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)]" @click="viewingAdvert = null; resetAdvertForm()">Clear</button>
+          <button type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-[0.85rem] bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-strong)] disabled:cursor-wait disabled:opacity-70" :disabled="creating || uploadingAdvertImage || !imageReady">
             <Loader2 v-if="creating || uploadingAdvertImage" class="h-4 w-4 animate-spin" />
             {{ uploadingAdvertImage ? 'Processing image...' : creating ? 'Saving...' : viewingAdvert ? 'Save advert' : 'Create new advert' }}
           </button>
