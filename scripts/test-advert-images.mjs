@@ -3,7 +3,20 @@ import { createServer } from 'vite'
 
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 try {
-  const { parseAdvertSize, advertImageError, readImageDimensions } = await server.ssrLoadModule('/src/utils/advertImages.ts')
+  const { parseAdvertSize, advertImageError, readImageDimensions, advertCropRect } = await server.ssrLoadModule('/src/utils/advertImages.ts')
+  assert.deepEqual(advertCropRect({ width: 400, height: 200 }, { width: 100, height: 100 }, 1, 50, 50), { x: 100, y: 0, width: 200, height: 200 })
+  assert.deepEqual(advertCropRect({ width: 200, height: 400 }, { width: 100, height: 100 }, 1, 50, 100), { x: 0, y: 200, width: 200, height: 200 })
+  assert.deepEqual(advertCropRect({ width: 400, height: 200 }, { width: 100, height: 100 }, 2, 100, 0), { x: 300, y: 0, width: 100, height: 100 })
+  assert.deepEqual(advertCropRect({ width: 20, height: 20 }, { width: 200, height: 100 }, 1, 50, 50), { x: 0, y: 5, width: 20, height: 10 })
+  for (const source of [{ width: 800, height: 200 }, { width: 200, height: 800 }]) {
+    for (const zoom of [1, 1.5, 4]) {
+      for (const position of [0, 50, 100]) {
+        const crop = advertCropRect(source, { width: 299, height: 500 }, zoom, position, position)
+        assert.ok(Math.abs(crop.width / crop.height - 299 / 500) < 1e-10, 'Crop preserves the placement aspect ratio')
+        assert.ok(crop.x >= 0 && crop.y >= 0 && crop.x + crop.width <= source.width + 1e-10 && crop.y + crop.height <= source.height + 1e-10, 'Crop stays inside the image at all positions and zoom levels')
+      }
+    }
+  }
   for (const value of ['299x500', ' 299 × 500 ', '299 X 500 px']) {
     assert.deepEqual(parseAdvertSize(value), { width: 299, height: 500 })
   }

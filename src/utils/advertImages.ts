@@ -1,5 +1,18 @@
 export type ImageDimensions = { width: number; height: number }
 
+// Position is a percentage of the available travel within the source image.
+export function advertCropRect(source: ImageDimensions, target: ImageDimensions, zoom: number, x: number, y: number) {
+  const scale = Math.max(target.width / source.width, target.height / source.height) * Math.max(1, zoom)
+  const width = target.width / scale
+  const height = target.height / scale
+  return {
+    x: (source.width - width) * Math.min(100, Math.max(0, x)) / 100,
+    y: (source.height - height) * Math.min(100, Math.max(0, y)) / 100,
+    width,
+    height,
+  }
+}
+
 export function parseAdvertSize(value: string): ImageDimensions | null {
   const match = value.trim().match(/^(\d+)\s*[x×]\s*(\d+)\s*(?:px)?$/i)
   if (!match) return null

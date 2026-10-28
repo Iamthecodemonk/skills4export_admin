@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { Ban, Edit2, Eye, Image, Loader2, Megaphone, MoreHorizontal, RefreshCw, RotateCcw, Search, Trash2, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import StatusChip from '../../components/StatusChip.vue'
+import AdvertImageCropper from '../../components/AdvertImageCropper.vue'
 import { advertImageError, parseAdvertSize, readImageDimensions, type ImageDimensions } from '../../utils/advertImages'
 import {
   createAdvert,
@@ -71,6 +72,7 @@ const previewImageUrl = ref('')
 const uploadingAdvertImage = ref(false)
 const uploadError = ref<string | null>(null)
 const uploadPreviewUrl = ref('')
+const cropFile = ref<File | null>(null)
 const imageDimensions = ref<ImageDimensions | null>(null)
 const validatingImage = ref(false)
 const imageValidationError = ref<string | null>(null)
@@ -121,7 +123,7 @@ const imageRequirementError = computed(() => {
   if (!requiredImageSize.value) return 'This AD location needs a valid size in width × height pixels, for example 299x500. Update it in AD Location.'
   return null
 })
-const imageReady = computed(() => !!form.value.imageUrl && !!imageDimensions.value && !!requiredImageSize.value
+const imageReady = computed(() => !cropFile.value && !!form.value.imageUrl && !!imageDimensions.value && !!requiredImageSize.value
   && !imageValidationError.value && !validatingImage.value
   && !advertImageError(requiredImageSize.value, imageDimensions.value))
 
@@ -318,6 +320,7 @@ async function buildAdvertPayload() {
 }
 
 function resetAdvertForm() {
+  cropFile.value = null
   uploadVersion += 1
   uploadingAdvertImage.value = false
   form.value = {
@@ -502,11 +505,21 @@ async function pollMediaJobForAsset(jobId: string) {
   throw new Error('Advert image is still processing. Try again shortly.')
 }
 
-async function uploadAdvertImage(event: Event) {
+function chooseAdvertImage(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
-
+  input.value = ''
   if (!file) return
+  if (imageRequirementError.value) {
+    uploadError.value = imageRequirementError.value
+    return
+  }
+  uploadError.value = null
+  cropFile.value = file
+}
+
+async function uploadAdvertImage(file: File) {
+  cropFile.value = null
 
   const version = ++uploadVersion
   uploadingAdvertImage.value = true
@@ -545,7 +558,6 @@ async function uploadAdvertImage(event: Event) {
     toast.error(uploadError.value)
   } finally {
     if (version === uploadVersion) uploadingAdvertImage.value = false
-    input.value = ''
   }
 }
 
@@ -711,6 +723,7 @@ onMounted(async () => {
 
 <template>
   <div class="space-y-4">
+    <AdvertImageCropper v-if="cropFile && requiredImageSize" :file="cropFile" :size="requiredImageSize" @confirm="uploadAdvertImage" @cancel="cropFile = null" />
     <section class="rounded-[1rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] p-4">
       <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
@@ -759,7 +772,7 @@ onMounted(async () => {
           </div>
         </div>
 
-        <fieldset :disabled="creating || uploadingAdvertImage" class="mt-5 grid min-w-0 gap-4 md:grid-cols-3">
+        <fieldset :disabled="creating || uploadingAdvertImage || !!cropFile" class="mt-5 grid min-w-0 gap-4 md:grid-cols-3">
           <div>
             <label class="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Advert option</label>
             <select v-model="form.platform" class="h-11 w-full rounded-[0.85rem] border border-[color:var(--border-soft)] bg-[var(--surface-secondary)] px-3 text-sm outline-none focus:border-[var(--accent)]">
@@ -792,10 +805,10 @@ onMounted(async () => {
               <label class="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-[0.75rem] border border-[color:var(--border-soft)] bg-[var(--surface-primary)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-strong)]">
                 <Loader2 v-if="uploadingAdvertImage" class="h-4 w-4 animate-spin" />
                 {{ uploadingAdvertImage ? 'Uploading...' : 'Choose file' }}
-                <input class="hidden" type="file" accept="image/*" :disabled="uploadingAdvertImage || !!imageRequirementError" @change="uploadAdvertImage" />
+                <input class="hidden" type="file" accept="image/*" :disabled="uploadingAdvertImage || !!imageRequirementError" @change="chooseAdvertImage" />
               </label>
             </div>
-            <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ imageRequirementError || `Required image: ${requiredImageSize!.width} × ${requiredImageSize!.height} pixels. Exact dimensions only.` }}</p>
+            <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ imageRequirementError || `Required image: ${requiredImageSize!.width} × ${requiredImageSize!.height} pixels. Choose an image to crop and preview before uploading.` }}</p>
             <p v-if="uploadError" class="mt-1 text-sm font-medium text-red-600">{{ uploadError }}</p>
             <p v-else-if="uploadingAdvertImage" class="mt-1 text-sm font-medium text-[var(--text-secondary)]">Image is uploading and processing. Submit will unlock when it is ready.</p>
             <p v-else-if="validatingImage" class="mt-1 text-sm text-[var(--text-secondary)]" role="status">Checking image dimensions...</p>
